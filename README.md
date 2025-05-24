@@ -34,6 +34,10 @@ cd hotelcosta
 # Instalar dependências
 npm install
 
+# Configurar variáveis de ambiente
+cp .env.example .env
+# Edite o arquivo .env com suas chaves do Firebase
+
 # Iniciar servidor de desenvolvimento
 npm start
 ```
@@ -63,12 +67,28 @@ vercel --prod
 
 ## ⚙️ Configuração do Firebase
 
-O projeto já está configurado com Firebase. Para usar seu próprio projeto:
+O projeto já está configurado com Firebase e suporta variáveis de ambiente para deploy seguro.
 
+### Para Desenvolvimento Local:
+1. Copie o arquivo `.env.example` para `.env`
+2. O projeto já funciona com as configurações padrão para desenvolvimento
+
+### Para Produção (Deploy):
 1. Crie um projeto no [Firebase Console](https://console.firebase.google.com)
 2. Ative o Firestore Database
-3. Configure as regras de segurança
-4. Substitua as configurações em `src/firebase.js`
+3. Configure as regras de segurança (veja abaixo)
+4. Copie suas chaves do Firebase
+5. Configure as variáveis de ambiente na Vercel:
+
+```bash
+REACT_APP_FIREBASE_API_KEY=sua_api_key_aqui
+REACT_APP_FIREBASE_AUTH_DOMAIN=seu_auth_domain_aqui
+REACT_APP_FIREBASE_PROJECT_ID=seu_project_id_aqui
+REACT_APP_FIREBASE_STORAGE_BUCKET=seu_storage_bucket_aqui
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=seu_messaging_sender_id_aqui
+REACT_APP_FIREBASE_APP_ID=seu_app_id_aqui
+REACT_APP_FIREBASE_MEASUREMENT_ID=seu_measurement_id_aqui
+```
 
 ### Regras do Firestore
 
