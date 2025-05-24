@@ -16,7 +16,6 @@ import {
   inicializarProdutos,
   migrarDadosIniciais,
   buscarConsumosHospede,
-  buscarConsumosHospedeAlternativo,
   adicionarConsumo as adicionarConsumoFirestore,
   atualizarConsumo,
   removerConsumo as removerConsumoFirestore,
@@ -28,7 +27,6 @@ import {
 function App() {
   // Estados principais
   const [hospedes, setHospedes] = useState([]);
-  const [consumosPorHospede, setConsumosPorHospede] = useState({});
   const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [migrando, setMigrando] = useState(false);
@@ -154,11 +152,10 @@ function App() {
           setHospedes(hospedes);
           setCarregando(false);
           
-          // Se não há hóspedes, oferecer migração
-          if (hospedes.length === 0 && !migrando) {
-            console.log('🔄 Nenhum hóspede encontrado. Preparando migração...');
-            // Aqui você pode descomentar para fazer migração automática
-            // realizarMigracao();
+          // Se não há hóspedes, preparar para migração se necessário
+          if (hospedes.length === 0) {
+            console.log('🔄 Nenhum hóspede encontrado. Base de dados limpa.');
+            // Migração pode ser feita manualmente se necessário
           }
         });
 
@@ -170,7 +167,7 @@ function App() {
     };
 
     inicializar();
-  }, []);
+  }, []); // Removendo dependência de 'migrando' pois não é necessária aqui
 
   // Função para migrar dados iniciais (usar apenas uma vez)
   const realizarMigracao = async () => {
