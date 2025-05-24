@@ -1,70 +1,166 @@
-# Getting Started with Create React App
+# 🏨 Sistema de Gestão Hoteleira - Hotel Costa
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Sistema completo de gestão hoteleira desenvolvido em React.js com Firebase, oferecendo controle total sobre hóspedes, consumos, produtos e checkout.
 
-## Available Scripts
+## 🚀 Características
 
-In the project directory, you can run:
+- ✅ **Gestão de Hóspedes**: Cadastro, edição e acompanhamento em tempo real
+- ✅ **Sistema de Consumos**: Controle de produtos consumidos por hóspede
+- ✅ **Gerenciamento de Produtos**: CRUD completo de produtos e preços
+- ✅ **Checkout Automático**: Cálculo automático de diárias e consumos
+- ✅ **Geração de PDFs**: Fichas e comprovantes de checkout
+- ✅ **Busca Inteligente**: Evita duplicação de cadastros
+- ✅ **Sincronização em Tempo Real**: Firebase Firestore
+- ✅ **Interface Responsiva**: Funciona em desktop e mobile
 
-### `npm start`
+## 🛠️ Tecnologias Utilizadas
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Frontend**: React.js 19.1.0
+- **Database**: Firebase Firestore
+- **Styling**: CSS3 com design moderno
+- **PDF Generation**: jsPDF
+- **Icons**: Emojis nativos
+- **Deploy**: Vercel Ready
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 📦 Instalação Local
 
-### `npm test`
+```bash
+# Clonar o repositório
+git clone https://github.com/Samoo1234/hotelcosta.git
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# Entrar no diretório
+cd hotelcosta
 
-### `npm run build`
+# Instalar dependências
+npm install
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+# Iniciar servidor de desenvolvimento
+npm start
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🌍 Deploy na Vercel
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Opção 1: Deploy Automático via GitHub
 
-### `npm run eject`
+1. Acesse [vercel.com](https://vercel.com)
+2. Conecte sua conta GitHub
+3. Importe o repositório `hotelcosta`
+4. Configure as variáveis de ambiente do Firebase
+5. Deploy automático! 🚀
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Opção 2: Deploy via CLI
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+# Instalar Vercel CLI
+npm i -g vercel
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+# Login na Vercel
+vercel login
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+# Deploy
+vercel --prod
+```
 
-## Learn More
+## ⚙️ Configuração do Firebase
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+O projeto já está configurado com Firebase. Para usar seu próprio projeto:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Crie um projeto no [Firebase Console](https://console.firebase.google.com)
+2. Ative o Firestore Database
+3. Configure as regras de segurança
+4. Substitua as configurações em `src/firebase.js`
 
-### Code Splitting
+### Regras do Firestore
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
 
-### Analyzing the Bundle Size
+## 📁 Estrutura do Projeto
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```
+src/
+├── App.js                 # Componente principal
+├── App.css               # Estilos globais
+├── firebase.js           # Configuração Firebase
+└── services/
+    └── firestoreService.js # Serviços do Firebase
+```
 
-### Making a Progressive Web App
+## 🎯 Funcionalidades Principais
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Gestão de Hóspedes
+- Cadastro completo com dados pessoais
+- Check-in automático com timestamp
+- Cálculo automático de diárias
+- Status de pagamento (Pago/Pendente)
 
-### Advanced Configuration
+### Sistema de Consumos
+- Catálogo de produtos configurável
+- Adição rápida de consumos
+- Controle de quantidade
+- Cálculo automático de totais
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### Checkout
+- Resumo completo da estadia
+- Cálculo de diárias + consumos
+- Geração automática de PDF
+- Histórico de checkouts
 
-### Deployment
+### Relatórios
+- Ficha completa do hóspede em PDF
+- Comprovante de checkout
+- Estatísticas em tempo real
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## 🔧 Scripts Disponíveis
 
-### `npm run build` fails to minify
+- `npm start` - Inicia servidor de desenvolvimento
+- `npm run build` - Gera build de produção
+- `npm test` - Executa testes
+- `npm run eject` - Ejeta configurações (não recomendado)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 📱 Responsividade
+
+O sistema é totalmente responsivo e funciona perfeitamente em:
+- 💻 Desktop (1200px+)
+- 📱 Tablet (768px - 1199px)
+- 📱 Mobile (480px - 767px)
+- 📱 Mobile Pequeno (< 480px)
+
+## 🎨 Design
+
+Interface moderna com:
+- Cores suaves e profissionais
+- Animações suaves
+- Feedback visual para ações
+- Loading states
+- Modais intuitivos
+
+## 🤝 Contribuição
+
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está sob licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
+
+## 👨‍💻 Autor
+
+**Samoel Duarte**
+- GitHub: [@Samoo1234](https://github.com/Samoo1234)
+- Projeto: [Hotel Costa](https://github.com/Samoo1234/hotelcosta)
+
+---
+
+⭐ Se este projeto foi útil, considere dar uma estrela!
