@@ -275,6 +275,12 @@ function App() {
       const diferencaMs = agora.getTime() - dataFinalizacao.getTime();
       const horasPassadas = diferencaMs / (1000 * 60 * 60);
       
+      console.log(`🔒 Debug edição ${hospede.nome}:`);
+      console.log(`   - Data finalização: ${hospede.dataFinalizacao}`);
+      console.log(`   - Data atual: ${agora.toISOString()}`);
+      console.log(`   - Horas passadas: ${horasPassadas.toFixed(2)}`);
+      console.log(`   - Pode editar: ${horasPassadas < 1}`);
+      
       return horasPassadas < 1; // Permite edição por até 1 hora
     }
     
@@ -732,7 +738,7 @@ function App() {
       
       const dadosCheckout = {
         checkOut,
-        dataFinalizacao: agora.toLocaleString('pt-BR'),
+        dataFinalizacao: agora.toISOString(), // Usar formato ISO para garantir compatibilidade
         totalFinal,
         totalDiarias,
         totalConsumos,
