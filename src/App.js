@@ -169,7 +169,7 @@ function App() {
     return `${ano}-${mes}-${dia}`;
   };
 
-  // Calcular quantas diárias já passaram desde o check-in
+  // Calcular quantas diárias já passaram desde o check-in (baseado em períodos de meio-dia a meio-dia)
   const calcularDiariasDecorridas = (checkIn, checkOut = null, statusHospedagem = 'ATIVO') => {
     if (!checkIn) return 1;
     
@@ -180,10 +180,40 @@ function App() {
       ? new Date(checkOut) 
       : agora;
     
-    const diferencaMs = dataFinal.getTime() - dataCheckIn.getTime();
-    const horasDecorridas = diferencaMs / (1000 * 60 * 60);
+    // Função para obter a data do meio-dia (12:00) de uma data específica
+    const obterMeioDia = (data) => {
+      const meioDia = new Date(data);
+      meioDia.setHours(12, 0, 0, 0);
+      return meioDia;
+    };
     
-    return Math.max(1, Math.ceil(horasDecorridas / 24));
+    // Começar contando a partir do check-in
+    let contadorDiarias = 1;
+    let dataAtual = new Date(dataCheckIn);
+    
+    // Loop para contar quantos meio-dias passaram desde o check-in
+    while (true) {
+      // Obter o meio-dia do dia atual
+      let meioDiaAtual = obterMeioDia(dataAtual);
+      
+      // Se o check-in foi depois do meio-dia, o próximo marco é o meio-dia do dia seguinte
+      if (dataAtual.getHours() >= 12) {
+        meioDiaAtual.setDate(meioDiaAtual.getDate() + 1);
+      }
+      
+      // Se ainda não chegou neste meio-dia, para de contar
+      if (dataFinal < meioDiaAtual) {
+        break;
+      }
+      
+      // Passou por mais um meio-dia, conta mais uma diária
+      contadorDiarias++;
+      
+      // Avançar para o próximo dia
+      dataAtual = new Date(meioDiaAtual);
+    }
+    
+    return contadorDiarias;
   };
 
   // Calcular valor total baseado nas diárias
