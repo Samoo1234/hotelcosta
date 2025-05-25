@@ -352,42 +352,6 @@ export const inicializarProdutos = async () => {
 
 // ==================== MIGRAÇÃO DE DADOS ====================
 
-// Migrar dados existentes para Firestore
-export const migrarDadosIniciais = async (hospedes) => {
-  try {
-    console.log('Iniciando migração de dados...');
-    
-    for (const hospede of hospedes) {
-      // Separar consumos do hóspede
-      const { consumos, ...dadosHospede } = hospede;
-      
-      // Adicionar hóspede
-      const hospedeRef = await addDoc(collection(db, 'hospedes'), {
-        ...dadosHospede,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      
-      // Adicionar consumos se existirem
-      if (consumos && consumos.length > 0) {
-        for (const consumo of consumos) {
-          await addDoc(collection(db, 'consumos'), {
-            hospedeId: hospedeRef.id,
-            ...consumo,
-            createdAt: serverTimestamp()
-          });
-        }
-      }
-    }
-    
-    console.log('Migração concluída com sucesso!');
-    return true;
-  } catch (error) {
-    console.error('Erro na migração:', error);
-    return false;
-  }
-};
-
 // ==================== CORREÇÃO DE DADOS ====================
 
 // Função para corrigir dados existentes sem statusHospedagem

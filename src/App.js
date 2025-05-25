@@ -14,7 +14,6 @@ import {
   atualizarProduto,
   removerProduto,
   inicializarProdutos,
-  migrarDadosIniciais,
   buscarConsumosHospede,
   adicionarConsumo as adicionarConsumoFirestore,
   atualizarConsumo,
@@ -29,7 +28,6 @@ function App() {
   const [hospedes, setHospedes] = useState([]);
   const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  const [migrando, setMigrando] = useState(false);
   
   // Estados dos modais
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -77,44 +75,6 @@ function App() {
     preco: ''
   });
 
-  // Dados iniciais para migração (caso necessário)
-  const dadosIniciais = [
-    { id: 1, data: "09/05/2025", nome: "Shirlene Maria Silva (Cir)", telefone: "(11) 98765-4321", rg: "12.345.678-9", cpf: "123.456.789-00", cnh: "12345678901", quartos: 190, pago: "PG", valorDiaria: 150.00, checkIn: "2025-05-09T12:00", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 2, data: "09/05/2025", nome: "José Hamilton", telefone: "(11) 97654-3210", rg: "23.456.789-0", cpf: "234.567.890-11", cnh: "23456789012", quartos: 180, pago: "PG", valorDiaria: 150.00, checkIn: "2025-05-09T14:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 3, data: "09/05/2025", nome: "Fábio (Vitória)", telefone: "(11) 96543-2109", rg: "34.567.890-1", cpf: "345.678.901-22", cnh: "", quartos: 50, pago: "PG", valorDiaria: 300.00, checkIn: "2025-05-09T16:00", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 4, data: "09/05/2025", nome: "Ivanilda Moreira da Silva", telefone: "(11) 95432-1098", rg: "45.678.901-2", cpf: "456.789.012-33", cnh: "45678901234", quartos: 240, pago: "PG", valorDiaria: 360.00, checkIn: "2025-05-09T10:15", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 5, data: "09/05/2025", nome: "Darlan da Silva", telefone: "(11) 94321-0987", rg: "56.789.012-3", cpf: "567.890.123-44", cnh: "56789012345", quartos: 30, pago: "PG", valorDiaria: 330.00, checkIn: "2025-05-09T13:45", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 6, data: "09/05/2025", nome: "William Oliveira (Fix)", telefone: "(11) 93210-9876", rg: "67.890.123-4", cpf: "678.901.234-55", cnh: "", quartos: 140, pago: "PG", valorDiaria: 300.00, checkIn: "2025-05-09T11:20", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 7, data: "09/04/2025", nome: "Major Douglas", telefone: "(11) 92109-8765", rg: "78.901.234-5", cpf: "789.012.345-66", cnh: "78901234567", quartos: 18, pago: "PG", valorDiaria: 360.00, checkIn: "2025-04-09T15:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 8, data: "10/05/2025", nome: "Eglias José da Silva", telefone: "(11) 91098-7654", rg: "89.012.345-6", cpf: "890.123.456-77", cnh: "89012345678", quartos: 150, pago: "PG", valorDiaria: 220.00, checkIn: "2025-05-10T09:00", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 9, data: "10/05/2025", nome: "João Pedro Fretini", telefone: "(11) 90987-6543", rg: "90.123.456-7", cpf: "901.234.567-88", cnh: "", quartos: 80, pago: "PENDENTE", valorDiaria: 50.00, checkIn: "2025-05-10T17:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 10, data: "10/05/2025", nome: "Denildo Quide do Nascimento", telefone: "(11) 99876-5432", rg: "01.234.567-8", cpf: "012.345.678-99", cnh: "01234567890", quartos: 270, pago: "PG", valorDiaria: 100.00, checkIn: "2025-05-10T08:45", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 11, data: "10/05/2025", nome: "Edinaldo Moreira da Silva", telefone: "(11) 98765-4321", rg: "12.345.678-9", cpf: "123.456.789-00", cnh: "12345678901", quartos: 50, pago: "PG", valorDiaria: 150.00, checkIn: "2025-05-10T12:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 12, data: "10/05/2025", nome: "José de Maria Lupa", telefone: "(11) 97654-3210", rg: "23.456.789-0", cpf: "234.567.890-11", cnh: "", quartos: 240, pago: "PG", valorDiaria: 110.00, checkIn: "2025-05-10T14:15", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 13, data: "10/05/2025", nome: "Miguel Rodriguez Jr", telefone: "(11) 96543-2109", rg: "34.567.890-1", cpf: "345.678.901-22", cnh: "34567890123", quartos: 21, pago: "PG", valorDiaria: 120.00, checkIn: "2025-05-10T16:45", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 14, data: "10/05/2025", nome: "Jursioma (Fix)", telefone: "(11) 95432-1098", rg: "45.678.901-2", cpf: "456.789.012-33", cnh: "", quartos: 4, pago: "PG", valorDiaria: 190.00, checkIn: "2025-05-10T11:00", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 15, data: "10/05/2025", nome: "Georsonkle", telefone: "(11) 94321-0987", rg: "56.789.012-3", cpf: "567.890.123-44", cnh: "56789012345", quartos: 200, pago: "PG", valorDiaria: 270.00, checkIn: "2025-05-10T13:20", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 16, data: "10/05/2025", nome: "Rilam", telefone: "(11) 93210-9876", rg: "67.890.123-4", cpf: "678.901.234-55", cnh: "", quartos: 8, pago: "PG", valorDiaria: 210.00, checkIn: "2025-05-10T15:10", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 17, data: "10/05/2025", nome: "Eudcleido (Fix)", telefone: "(11) 92109-8765", rg: "78.901.234-5", cpf: "789.012.345-66", cnh: "78901234567", quartos: 50, pago: "PG", valorDiaria: 150.00, checkIn: "2025-05-10T10:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 18, data: "10/05/2025", nome: "Tiago Bonilha", telefone: "(11) 91098-7654", rg: "89.012.345-6", cpf: "890.123.456-77", cnh: "89012345678", quartos: 15, pago: "PG", valorDiaria: 160.00, checkIn: "2025-05-10T18:00", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 19, data: "10/05/2025", nome: "Luiz Gustavo", telefone: "(11) 90987-6543", rg: "90.123.456-7", cpf: "901.234.567-88", cnh: "", quartos: 130, pago: "PG", valorDiaria: 300.00, checkIn: "2025-05-10T07:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 20, data: "10/05/2025", nome: "Osiel (PG depois)", telefone: "(11) 99876-5432", rg: "01.234.567-8", cpf: "012.345.678-99", cnh: "01234567890", quartos: 200, pago: "PG", valorDiaria: 330.00, checkIn: "2025-05-10T12:45", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 21, data: "10/05/2025", nome: "Paula", telefone: "(11) 98765-4321", rg: "12.345.678-9", cpf: "123.456.789-00", cnh: "", quartos: 140, pago: "PG", valorDiaria: 150.00, checkIn: "2025-05-10T14:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 22, data: "10/05/2025", nome: "Renê Ferreira da Silva", telefone: "(11) 97654-3210", rg: "23.456.789-0", cpf: "234.567.890-11", cnh: "23456789012", quartos: 60, pago: "PG", valorDiaria: 150.00, checkIn: "2025-05-10T16:15", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 23, data: "11/05/2025", nome: "José Antonio", telefone: "(11) 96543-2109", rg: "34.567.890-1", cpf: "345.678.901-22", cnh: "34567890123", quartos: 13, pago: "PG", valorDiaria: 180.00, checkIn: "2025-05-11T09:15", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 24, data: "11/05/2025", nome: "Kaio", telefone: "(11) 95432-1098", rg: "45.678.901-2", cpf: "456.789.012-33", cnh: "", quartos: 61, pago: "PG", valorDiaria: 330.00, checkIn: "2025-05-11T11:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 25, data: "11/05/2025", nome: "Pedro", telefone: "(11) 94321-0987", rg: "56.789.012-3", cpf: "567.890.123-44", cnh: "56789012345", quartos: 4, pago: "PG", valorDiaria: 100.00, checkIn: "2025-05-11T13:45", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 26, data: "12/05/2025", nome: "Luiz Adir (Dentx)", telefone: "(11) 93210-9876", rg: "67.890.123-4", cpf: "678.901.234-55", cnh: "", quartos: 13, pago: "PG", valorDiaria: 160.00, checkIn: "2025-05-12T08:20", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 27, data: "12/05/2025", nome: "Francimar Arruda", telefone: "(11) 92109-8765", rg: "78.901.234-5", cpf: "789.012.345-66", cnh: "78901234567", quartos: 15, pago: "PG", valorDiaria: 170.00, checkIn: "2025-05-12T10:40", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 28, data: "12/05/2025", nome: "João Batista (Negro Nai)", telefone: "(11) 91098-7654", rg: "89.012.345-6", cpf: "890.123.456-77", cnh: "89012345678", quartos: 220, pago: "PG", valorDiaria: 600.00, checkIn: "2025-05-12T15:00", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 29, data: "12/05/2025", nome: "Serdio (Pesall)", telefone: "(11) 90987-6543", rg: "90.123.456-7", cpf: "901.234.567-88", cnh: "", quartos: 180, pago: "PG", valorDiaria: 410.00, checkIn: "2025-05-12T17:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 30, data: "13/05/2025", nome: "Luvas Rinar (Rianau)", telefone: "(11) 99876-5432", rg: "01.234.567-8", cpf: "012.345.678-99", cnh: "01234567890", quartos: 30, pago: "PG", valorDiaria: 230.00, checkIn: "2025-05-13T07:45", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 31, data: "13/05/2025", nome: "Elton Filiato", telefone: "(11) 98765-4321", rg: "12.345.678-9", cpf: "123.456.789-00", cnh: "12345678901", quartos: 60, pago: "PG", valorDiaria: 150.00, checkIn: "2025-05-13T12:15", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 32, data: "13/05/2025", nome: "Pedrn Apel Alilu", telefone: "(11) 97654-3210", rg: "23.456.789-0", cpf: "234.567.890-11", cnh: "", quartos: 300, pago: "PG", valorDiaria: 110.00, checkIn: "2025-05-13T14:20", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 33, data: "13/05/2025", nome: "Sérgio", telefone: "(11) 96543-2109", rg: "34.567.890-1", cpf: "345.678.901-22", cnh: "34567890123", quartos: 70, pago: "PG", valorDiaria: 160.00, checkIn: "2025-05-13T16:30", consumos: [], statusHospedagem: "ATIVO" },
-    { id: 34, data: "13/05/2025", nome: "Willian Cristiano", telefone: "(11) 95432-1098", rg: "45.678.901-2", cpf: "456.789.012-33", cnh: "", quartos: 8, pago: "PG", valorDiaria: 160.00, checkIn: "2025-05-13T18:45", consumos: [], statusHospedagem: "ATIVO" }
-  ];
-
   // Timer para atualizar em tempo real
   useEffect(() => {
     const timer = setInterval(() => {
@@ -151,12 +111,6 @@ function App() {
           console.log('📊 Hóspedes atualizados:', hospedes.length);
           setHospedes(hospedes);
           setCarregando(false);
-          
-          // Se não há hóspedes, preparar para migração se necessário
-          if (hospedes.length === 0) {
-            console.log('🔄 Nenhum hóspede encontrado. Base de dados limpa.');
-            // Migração pode ser feita manualmente se necessário
-          }
         });
 
         return unsubscribe;
@@ -167,31 +121,7 @@ function App() {
     };
 
     inicializar();
-  }, []); // Removendo dependência de 'migrando' pois não é necessária aqui
-
-  // Função para migrar dados iniciais (usar apenas uma vez)
-  const realizarMigracao = async () => {
-    if (migrando) return;
-    
-    setMigrando(true);
-    console.log('🔄 Iniciando migração de dados...');
-    
-    try {
-      const sucesso = await migrarDadosIniciais(dadosIniciais);
-      if (sucesso) {
-        console.log('✅ Migração concluída com sucesso!');
-        alert('✅ Dados migrados para o Firebase com sucesso!');
-      } else {
-        console.log('❌ Erro na migração');
-        alert('❌ Erro na migração. Verifique o console.');
-      }
-    } catch (error) {
-      console.error('❌ Erro na migração:', error);
-      alert('❌ Erro na migração: ' + error.message);
-    } finally {
-      setMigrando(false);
-    }
-  };
+  }, []);
 
   // Carregar consumos quando abrir modal
   useEffect(() => {
@@ -1055,7 +985,6 @@ function App() {
         <div className="loading-container">
           <h2>🔥 Conectando ao Firebase...</h2>
           <p>Carregando dados do hotel...</p>
-          {migrando && <p>🔄 Migrando dados iniciais...</p>}
         </div>
       </div>
     );
@@ -1072,15 +1001,6 @@ function App() {
             <span className="current-time">
               ⏰ {agora.toLocaleString('pt-BR')}
             </span>
-            {hospedes.length === 0 && (
-              <button 
-                className="btn-migrate"
-                onClick={realizarMigracao}
-                disabled={migrando}
-              >
-                {migrando ? '🔄 Migrando...' : '📤 Migrar Dados'}
-              </button>
-            )}
             <button 
               className={`btn-toggle ${mostrarHistorico ? 'active' : ''}`}
               onClick={() => setMostrarHistorico(!mostrarHistorico)}
