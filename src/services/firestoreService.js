@@ -88,6 +88,7 @@ export const finalizarHospedagem = async (hospedeId, dadosCheckout) => {
     const hospedeRef = doc(db, 'hospedes', hospedeId);
     await updateDoc(hospedeRef, {
       statusHospedagem: 'FINALIZADO',
+      pago: 'PG', // Automaticamente marca como PAGO no checkout
       checkOut: dadosCheckout.checkOut,
       dataFinalizacao: dadosCheckout.dataFinalizacao,
       totalFinal: dadosCheckout.totalFinal,

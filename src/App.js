@@ -107,9 +107,25 @@ function App() {
 
         // Configurar listener para hóspedes em tempo real
         console.log('👥 Configurando listener de hóspedes...');
-        const unsubscribe = escutarHospedes((hospedes) => {
-          console.log('📊 Hóspedes atualizados:', hospedes.length);
-          setHospedes(hospedes);
+        const unsubscribe = escutarHospedes(async (hospedesRecebidos) => {
+          console.log('📊 Hóspedes atualizados:', hospedesRecebidos.length);
+          
+          // Carregar consumos para cada hóspede
+          console.log('🛒 Carregando consumos para todos os hóspedes...');
+          const hospedesComConsumos = await Promise.all(
+            hospedesRecebidos.map(async (hospede) => {
+              try {
+                const consumos = await buscarConsumosHospede(hospede.id);
+                return { ...hospede, consumos: consumos || [] };
+              } catch (error) {
+                console.error(`❌ Erro ao carregar consumos do hóspede ${hospede.nome}:`, error);
+                return { ...hospede, consumos: [] };
+              }
+            })
+          );
+          
+          console.log('✅ Consumos carregados para todos os hóspedes');
+          setHospedes(hospedesComConsumos);
           setCarregando(false);
         });
 
@@ -389,12 +405,19 @@ function App() {
       
       console.log('✅ Consumo salvo no Firestore! ID:', consumoId);
       
-      // Atualizar estado local
+      // Atualizar estado local do modal
       const consumoComId = { ...novoConsumo, id: consumoId };
       setHospedeConsumos(prev => ({
         ...prev,
         consumos: [consumoComId, ...(prev.consumos || [])]
       }));
+
+      // Atualizar também a lista principal de hóspedes
+      setHospedes(prev => prev.map(h => 
+        h.id === hospedeConsumos.id 
+          ? { ...h, consumos: [consumoComId, ...(h.consumos || [])] }
+          : h
+      ));
 
       console.log('🔄 Estado local atualizado');
       
@@ -416,13 +439,25 @@ function App() {
     try {
       await atualizarConsumo(consumoId, { quantidade: novaQuantidade });
       
-      // Atualizar estado local
+      // Atualizar estado local do modal
       setHospedeConsumos(prev => ({
         ...prev,
         consumos: prev.consumos.map(c => 
           c.id === consumoId ? { ...c, quantidade: novaQuantidade } : c
         )
       }));
+
+      // Atualizar também a lista principal de hóspedes
+      setHospedes(prev => prev.map(h => 
+        h.id === hospedeConsumos.id 
+          ? { 
+              ...h, 
+              consumos: h.consumos.map(c => 
+                c.id === consumoId ? { ...c, quantidade: novaQuantidade } : c
+              )
+            }
+          : h
+      ));
 
       console.log('✅ Quantidade atualizada!');
     } catch (error) {
@@ -435,11 +470,18 @@ function App() {
     try {
       await removerConsumoFirestore(consumoId);
       
-      // Atualizar estado local
+      // Atualizar estado local do modal
       setHospedeConsumos(prev => ({
         ...prev,
         consumos: prev.consumos.filter(c => c.id !== consumoId)
       }));
+
+      // Atualizar também a lista principal de hóspedes
+      setHospedes(prev => prev.map(h => 
+        h.id === hospedeConsumos.id 
+          ? { ...h, consumos: h.consumos.filter(c => c.id !== consumoId) }
+          : h
+      ));
 
       console.log('✅ Consumo removido!');
     } catch (error) {
@@ -733,8 +775,11 @@ function App() {
       
       doc.setFont(undefined, 'normal');
       hospede.consumos.forEach(consumo => {
-        const nomeItem = consumo.nome.replace(/[^\w\s]/gi, ''); // Remove emojis
-        doc.text(nomeItem.substring(0, 20), margemEsq, y);
+        // Função mais simples para remover emojis comuns, preservando texto normal
+        const nomeItemCheckout = consumo.nome
+          .replace(/🥤|💧|🍺|☕|🧊|🍫|🥜|🍪/g, '') // Remove apenas emojis específicos conhecidos
+          .trim();
+        doc.text(nomeItemCheckout.substring(0, 20), margemEsq, y);
         doc.text(`${consumo.quantidade}x`, margemEsq + 80, y);
         doc.text(`R$ ${consumo.preco.toFixed(2)}`, margemEsq + 100, y);
         doc.text(`R$ ${(consumo.preco * consumo.quantidade).toFixed(2)}`, margemEsq + 130, y);
@@ -886,7 +931,6 @@ function App() {
       doc.text('QTD', margemEsq + 80, y);
       doc.text('VALOR UNIT.', margemEsq + 100, y);
       doc.text('SUBTOTAL', margemEsq + 130, y);
-      doc.text('DATA/HORA', margemEsq + 155, y);
       y += 6;
       
       doc.line(margemEsq, y, margemEsq + larguraPagina, y);
@@ -894,12 +938,14 @@ function App() {
       
       doc.setFont(undefined, 'normal');
       hospedeFicha.consumos.forEach(consumo => {
-        const nomeItem = consumo.nome.replace(/[^\w\s]/gi, ''); // Remove emojis
-        doc.text(nomeItem.substring(0, 25), margemEsq, y);
+        // Função mais simples para remover emojis comuns, preservando texto normal
+        const nomeItemFicha = consumo.nome
+          .replace(/🥤|💧|🍺|☕|🧊|🍫|🥜|🍪/g, '') // Remove apenas emojis específicos conhecidos
+          .trim();
+        doc.text(nomeItemFicha.substring(0, 25), margemEsq, y);
         doc.text(`${consumo.quantidade}x`, margemEsq + 80, y);
         doc.text(`R$ ${consumo.preco.toFixed(2)}`, margemEsq + 100, y);
         doc.text(`R$ ${(consumo.preco * consumo.quantidade).toFixed(2)}`, margemEsq + 130, y);
-        doc.text(consumo.dataHora.substring(0, 16), margemEsq + 155, y);
         y += 5;
       });
     } else {
@@ -1114,7 +1160,17 @@ function App() {
                   </div>
                 </td>
                 <td className="total-cell">
-                  <strong>R$ {calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn).toFixed(2)}</strong>
+                  <div>
+                    <div>
+                      <strong>R$ {(calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn) + calcularTotalConsumos(hospede.consumos || [])).toFixed(2)}</strong>
+                    </div>
+                    <small style={{ color: '#666', fontSize: '0.8rem' }}>
+                      Diárias: R$ {calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn).toFixed(2)}
+                      {hospede.consumos && hospede.consumos.length > 0 && (
+                        <span> + Consumos: R$ {calcularTotalConsumos(hospede.consumos).toFixed(2)}</span>
+                      )}
+                    </small>
+                  </div>
                 </td>
                 <td>
                   <button 
