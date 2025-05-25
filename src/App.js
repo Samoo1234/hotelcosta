@@ -170,28 +170,40 @@ function App() {
   };
 
   // Calcular quantas diárias já passaram desde o check-in
-  const calcularDiariasDecorridas = (checkIn) => {
+  const calcularDiariasDecorridas = (checkIn, checkOut = null, statusHospedagem = 'ATIVO') => {
     if (!checkIn) return 1;
     
     const dataCheckIn = new Date(checkIn);
-    const diferencaMs = agora.getTime() - dataCheckIn.getTime();
+    
+    // Se está finalizado, usar a data de checkout, senão usar data atual
+    const dataFinal = (statusHospedagem === 'FINALIZADO' && checkOut) 
+      ? new Date(checkOut) 
+      : agora;
+    
+    const diferencaMs = dataFinal.getTime() - dataCheckIn.getTime();
     const horasDecorridas = diferencaMs / (1000 * 60 * 60);
     
     return Math.max(1, Math.ceil(horasDecorridas / 24));
   };
 
   // Calcular valor total baseado nas diárias
-  const calcularTotalDiarias = (valorDiaria, checkIn) => {
-    const diarias = calcularDiariasDecorridas(checkIn);
+  const calcularTotalDiarias = (valorDiaria, checkIn, checkOut = null, statusHospedagem = 'ATIVO') => {
+    const diarias = calcularDiariasDecorridas(checkIn, checkOut, statusHospedagem);
     return valorDiaria * diarias;
   };
 
   // Formatear tempo decorrido
-  const formatarTempoDecorrido = (checkIn) => {
+  const formatarTempoDecorrido = (checkIn, checkOut = null, statusHospedagem = 'ATIVO') => {
     if (!checkIn) return 'N/A';
     
     const dataCheckIn = new Date(checkIn);
-    const diferencaMs = agora.getTime() - dataCheckIn.getTime();
+    
+    // Se está finalizado, usar a data de checkout, senão usar data atual
+    const dataFinal = (statusHospedagem === 'FINALIZADO' && checkOut) 
+      ? new Date(checkOut) 
+      : agora;
+    
+    const diferencaMs = dataFinal.getTime() - dataCheckIn.getTime();
     
     const dias = Math.floor(diferencaMs / (1000 * 60 * 60 * 24));
     const horas = Math.floor((diferencaMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -217,6 +229,26 @@ function App() {
       const quantidade = parseInt(consumo.quantidade) || 0;
       return total + (preco * quantidade);
     }, 0);
+  };
+
+  // Verificar se hóspede ainda pode ser editado (máximo 1 hora após finalização)
+  const podeEditarHospede = (hospede) => {
+    // Se está ativo, sempre pode editar
+    if (hospede.statusHospedagem !== 'FINALIZADO') {
+      return true;
+    }
+    
+    // Se foi finalizado, verificar se passou menos de 1 hora
+    if (hospede.dataFinalizacao) {
+      const dataFinalizacao = new Date(hospede.dataFinalizacao);
+      const agora = new Date();
+      const diferencaMs = agora.getTime() - dataFinalizacao.getTime();
+      const horasPassadas = diferencaMs / (1000 * 60 * 60);
+      
+      return horasPassadas < 1; // Permite edição por até 1 hora
+    }
+    
+    return false;
   };
 
   // ==================== BUSCA DE HÓSPEDES EXISTENTES ====================
@@ -526,6 +558,7 @@ function App() {
         await atualizarProduto(produtoEditando.id, dadosProduto);
         console.log('✅ Produto atualizado!');
         
+        
         // Atualizar lista local
         const produtosAtualizados = await buscarProdutos();
         setProdutosDisponiveis(produtosAtualizados);
@@ -735,11 +768,11 @@ function App() {
     y += 6;
     doc.text(`Check-out: ${new Date(checkOut).toLocaleString('pt-BR')}`, margemEsq, y);
     y += 6;
-    doc.text(`Tempo Total: ${formatarTempoDecorrido(hospede.checkIn)}`, margemEsq, y);
+    doc.text(`Tempo Total: ${formatarTempoDecorrido(hospede.checkIn, hospede.checkOut, hospede.statusHospedagem)}`, margemEsq, y);
     y += 15;
     
     // Resumo da Conta
-    const totalDiarias = calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn);
+    const totalDiarias = calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn, hospede.checkOut, hospede.statusHospedagem);
     const totalConsumos = calcularTotalConsumos(hospede.consumos);
     const totalGeral = totalDiarias + totalConsumos;
     
@@ -753,7 +786,7 @@ function App() {
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.text(`Valor da Diaria: R$ ${hospede.valorDiaria.toFixed(2)}`, margemEsq, y);
-    doc.text(`x ${calcularDiariasDecorridas(hospede.checkIn)} diarias`, margemEsq + 100, y);
+    doc.text(`x ${calcularDiariasDecorridas(hospede.checkIn, hospede.checkOut, hospede.statusHospedagem)} diarias`, margemEsq + 100, y);
     doc.text(`R$ ${totalDiarias.toFixed(2)}`, margemEsq + 140, y);
     y += 10;
     
@@ -887,18 +920,18 @@ function App() {
       { label: 'Data da Reserva', valor: hospedeFicha.data },
       { label: 'Quarto', valor: `No ${hospedeFicha.quartos}` },
       { label: 'Check-in', valor: hospedeFicha.checkIn ? new Date(hospedeFicha.checkIn).toLocaleString('pt-BR') : 'Nao informado' },
-      { label: 'Tempo Hospedado', valor: formatarTempoDecorrido(hospedeFicha.checkIn) },
+      { label: 'Tempo Hospedado', valor: formatarTempoDecorrido(hospedeFicha.checkIn, hospedeFicha.checkOut, hospedeFicha.statusHospedagem) },
       { label: 'Status Pagamento', valor: hospedeFicha.pago === 'PG' ? 'PAGO' : 'PENDENTE' }
     ]);
     
     // Resumo Financeiro
-    const totalDiarias = calcularTotalDiarias(hospedeFicha.valorDiaria, hospedeFicha.checkIn);
+    const totalDiarias = calcularTotalDiarias(hospedeFicha.valorDiaria, hospedeFicha.checkIn, hospedeFicha.checkOut, hospedeFicha.statusHospedagem);
     const totalConsumos = calcularTotalConsumos(hospedeFicha.consumos);
     const totalGeral = totalDiarias + totalConsumos;
     
     adicionarSecao('Resumo Financeiro', [
       { label: 'Valor da Diária', valor: `R$ ${hospedeFicha.valorDiaria.toFixed(2)}` },
-      { label: 'Numero de Diarias', valor: `${calcularDiariasDecorridas(hospedeFicha.checkIn)}` },
+      { label: 'Numero de Diarias', valor: `${calcularDiariasDecorridas(hospedeFicha.checkIn, hospedeFicha.checkOut, hospedeFicha.statusHospedagem)}` },
       { label: 'Total Diarias', valor: `R$ ${totalDiarias.toFixed(2)}` },
       { label: 'Total Consumos', valor: `R$ ${totalConsumos.toFixed(2)}` }
     ]);
@@ -1021,7 +1054,7 @@ function App() {
   
   // Para calcular faturamento, precisamos dos consumos
   const faturamentoDiarias = hospedesAtivos.reduce((acc, h) => 
-    acc + calcularTotalDiarias(h.valorDiaria, h.checkIn), 0
+    acc + calcularTotalDiarias(h.valorDiaria, h.checkIn, h.checkOut, h.statusHospedagem), 0
   );
   const faturamentoConsumos = 0; // Será calculado quando necessário
 
@@ -1155,17 +1188,17 @@ function App() {
                 <td>R$ {hospede.valorDiaria.toFixed(2)}</td>
                 <td className="tempo-cell">
                   <div>
-                    <span className="tempo-decorrido">{formatarTempoDecorrido(hospede.checkIn)}</span>
-                    <span className="diarias-count">{calcularDiariasDecorridas(hospede.checkIn)} diária(s)</span>
+                    <span className="tempo-decorrido">{formatarTempoDecorrido(hospede.checkIn, hospede.checkOut, hospede.statusHospedagem)}</span>
+                    <span className="diarias-count">{calcularDiariasDecorridas(hospede.checkIn, hospede.checkOut, hospede.statusHospedagem)} diária(s)</span>
                   </div>
                 </td>
                 <td className="total-cell">
                   <div>
                     <div>
-                      <strong>R$ {(calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn) + calcularTotalConsumos(hospede.consumos || [])).toFixed(2)}</strong>
+                      <strong>R$ {(calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn, hospede.checkOut, hospede.statusHospedagem) + calcularTotalConsumos(hospede.consumos || [])).toFixed(2)}</strong>
                     </div>
                     <small style={{ color: '#666', fontSize: '0.8rem' }}>
-                      Diárias: R$ {calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn).toFixed(2)}
+                      Diárias: R$ {calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn, hospede.checkOut, hospede.statusHospedagem).toFixed(2)}
                       {hospede.consumos && hospede.consumos.length > 0 && (
                         <span> + Consumos: R$ {calcularTotalConsumos(hospede.consumos).toFixed(2)}</span>
                       )}
@@ -1199,20 +1232,41 @@ function App() {
                         🏁
                       </button>
                     )}
-                    <button
-                      onClick={() => iniciarEdicao(hospede)}
-                      className="btn-edit"
-                      title="Editar"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => removerHospede(hospede.id)}
-                      className="btn-delete"
-                      title="Remover"
-                    >
-                      🗑️
-                    </button>
+                    {podeEditarHospede(hospede) ? (
+                      <>
+                        <button
+                          onClick={() => iniciarEdicao(hospede)}
+                          className="btn-edit"
+                          title="Editar"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => removerHospede(hospede.id)}
+                          className="btn-delete"
+                          title="Remover"
+                        >
+                          🗑️
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="btn-edit disabled"
+                          title="Bloqueado - Mais de 1 hora após finalização"
+                          disabled
+                        >
+                          🔒
+                        </button>
+                        <button
+                          className="btn-delete disabled"
+                          title="Bloqueado - Mais de 1 hora após finalização"
+                          disabled
+                        >
+                          🔒
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1511,7 +1565,7 @@ function App() {
                   <div><strong>Nome:</strong> {hospedeCheckout.nome}</div>
                   <div><strong>Quarto:</strong> {hospedeCheckout.quartos}</div>
                   <div><strong>Check-in:</strong> {new Date(hospedeCheckout.checkIn).toLocaleString('pt-BR')}</div>
-                  <div><strong>Tempo de estadia:</strong> {formatarTempoDecorrido(hospedeCheckout.checkIn)}</div>
+                  <div><strong>Tempo de estadia:</strong> {formatarTempoDecorrido(hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem)}</div>
                 </div>
               </div>
 
@@ -1519,8 +1573,8 @@ function App() {
                 <h3>💰 Resumo Financeiro</h3>
                 <div className="resumo-itens">
                   <div className="resumo-linha">
-                    <span>Diárias ({calcularDiariasDecorridas(hospedeCheckout.checkIn)}x R$ {hospedeCheckout.valorDiaria.toFixed(2)}):</span>
-                    <span>R$ {calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn).toFixed(2)}</span>
+                    <span>Diárias ({calcularDiariasDecorridas(hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem)}x R$ {hospedeCheckout.valorDiaria.toFixed(2)}):</span>
+                    <span>R$ {calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem).toFixed(2)}</span>
                   </div>
                   
                   {/* Detalhamento dos Consumos */}
@@ -1555,7 +1609,7 @@ function App() {
                   
                   <div className="resumo-total">
                     <span><strong>TOTAL GERAL:</strong></span>
-                    <span><strong>R$ {(calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn) + calcularTotalConsumos(hospedeCheckout.consumos || [])).toFixed(2)}</strong></span>
+                    <span><strong>R$ {(calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem) + calcularTotalConsumos(hospedeCheckout.consumos || [])).toFixed(2)}</strong></span>
                   </div>
                 </div>
               </div>
@@ -1601,7 +1655,7 @@ function App() {
                     <div><strong>Data:</strong> {hospedeFicha.data}</div>
                     <div><strong>Quarto:</strong> {hospedeFicha.quartos}</div>
                     <div><strong>Check-in:</strong> {new Date(hospedeFicha.checkIn).toLocaleString('pt-BR')}</div>
-                    <div><strong>Tempo de estadia:</strong> {formatarTempoDecorrido(hospedeFicha.checkIn)}</div>
+                    <div><strong>Tempo de estadia:</strong> {formatarTempoDecorrido(hospedeFicha.checkIn, hospedeFicha.checkOut, hospedeFicha.statusHospedagem)}</div>
                     <div><strong>Status:</strong> <span className={`status ${hospedeFicha.pago === 'PG' ? 'pago' : 'pendente'}`}>{hospedeFicha.pago === 'PG' ? '✅ Pago' : '⏳ Pendente'}</span></div>
                   </div>
                 </div>
@@ -1610,8 +1664,8 @@ function App() {
                   <h3>💰 Dados Financeiros</h3>
                   <div className="dados-grid">
                     <div><strong>Valor da Diária:</strong> R$ {hospedeFicha.valorDiaria.toFixed(2)}</div>
-                    <div><strong>Diárias:</strong> {calcularDiariasDecorridas(hospedeFicha.checkIn)}</div>
-                    <div><strong>Total Diárias:</strong> R$ {calcularTotalDiarias(hospedeFicha.valorDiaria, hospedeFicha.checkIn).toFixed(2)}</div>
+                    <div><strong>Diárias:</strong> {calcularDiariasDecorridas(hospedeFicha.checkIn, hospedeFicha.checkOut, hospedeFicha.statusHospedagem)}</div>
+                    <div><strong>Total Diárias:</strong> R$ {calcularTotalDiarias(hospedeFicha.valorDiaria, hospedeFicha.checkIn, hospedeFicha.checkOut, hospedeFicha.statusHospedagem).toFixed(2)}</div>
                     <div><strong>Total Consumos:</strong> R$ {calcularTotalConsumos(hospedeFicha.consumos).toFixed(2)}</div>
                   </div>
                 </div>
@@ -1647,7 +1701,7 @@ function App() {
 
               <div className="total-geral">
                 <div className="total-label">TOTAL GERAL DA HOSPEDAGEM:</div>
-                <div className="total-valor">R$ {(calcularTotalDiarias(hospedeFicha.valorDiaria, hospedeFicha.checkIn) + calcularTotalConsumos(hospedeFicha.consumos)).toFixed(2)}</div>
+                <div className="total-valor">R$ {(calcularTotalDiarias(hospedeFicha.valorDiaria, hospedeFicha.checkIn, hospedeFicha.checkOut, hospedeFicha.statusHospedagem) + calcularTotalConsumos(hospedeFicha.consumos)).toFixed(2)}</div>
               </div>
 
               <div className="ficha-actions">

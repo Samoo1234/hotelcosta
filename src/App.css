@@ -2069,3 +2069,18 @@ input::placeholder {
     font-size: 0.75rem;
   }
 }
+
+/* Botões de ação desabilitados (após 1 hora) */
+.btn-edit.disabled,
+.btn-delete.disabled {
+  background: #ccc !important;
+  color: #666 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+
+.btn-edit.disabled:hover,
+.btn-delete.disabled:hover {
+  background: #ccc !important;
+  transform: none !important;
+}
