@@ -45,6 +45,9 @@ function App() {
   const [editando, setEditando] = useState(null);
   const [produtoEditando, setProdutoEditando] = useState(null);
   
+  // Estado para controlar quais consumos são por conta do cliente (novo)
+  const [consumosPorContaCliente, setConsumosPorContaCliente] = useState(new Set());
+  
   // Estados dos filtros
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
@@ -744,6 +747,7 @@ function App() {
   const fecharCheckout = () => {
     setMostrarCheckout(false);
     setHospedeCheckout(null);
+    setConsumosPorContaCliente(new Set()); // Resetar consumos por conta do cliente
   };
 
   const finalizarHospedagem = async () => {
@@ -763,13 +767,17 @@ function App() {
       console.log('  - Check-out em local:', new Date(checkOut).toLocaleString('pt-BR'));
       
       const totalDiarias = calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn);
-      const totalConsumos = calcularTotalConsumos(hospedeCheckout.consumos || []);
+      
+      // Calcular totais separados (empresa vs cliente)
+      const { totalEmpresa, totalCliente } = calcularTotaisSeparados(hospedeCheckout.consumos || []);
+      const totalConsumos = totalEmpresa + totalCliente; // Total geral de consumos
       const totalFinal = totalDiarias + totalConsumos;
       const tempoEstadia = formatarTempoDecorrido(hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem);
       
       console.log('💰 Finalizando hospedagem:');
       console.log('  - Total diárias:', totalDiarias);
-      console.log('  - Total consumos:', totalConsumos);
+      console.log('  - Total consumos empresa:', totalEmpresa);
+      console.log('  - Total consumos cliente:', totalCliente);
       console.log('  - Total final:', totalFinal);
       console.log('  - Consumos para salvar:', hospedeCheckout.consumos);
       
@@ -779,6 +787,9 @@ function App() {
         totalFinal,
         totalDiarias,
         totalConsumos,
+        totalConsumosEmpresa: totalEmpresa, // Novo campo
+        totalConsumosCliente: totalCliente, // Novo campo
+        consumosPorContaCliente: Array.from(consumosPorContaCliente), // Salvar quais foram marcados
         tempoEstadia
       };
 
@@ -844,31 +855,51 @@ function App() {
     doc.text(`Tempo Total: ${formatarTempoDecorrido(hospede.checkIn, hospede.checkOut, hospede.statusHospedagem)}`, margemEsq, y);
     y += 15;
     
-    // Resumo da Conta
+    // Calcular totais separados
+    const { totalEmpresa, totalCliente, consumosEmpresa, consumosCliente } = calcularTotaisSeparados(hospede.consumos || []);
     const totalDiarias = calcularTotalDiarias(hospede.valorDiaria, hospede.checkIn, hospede.checkOut, hospede.statusHospedagem);
-    const totalConsumos = calcularTotalConsumos(hospede.consumos);
-    const totalGeral = totalDiarias + totalConsumos;
     
+    // Resumo da Conta - EMPRESA
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
-    doc.text('RESUMO DA CONTA', margemEsq, y);
+    doc.text('CONTA EMPRESA', margemEsq, y);
     y += 8;
     doc.line(margemEsq, y, margemEsq + larguraPagina, y);
     y += 8;
     
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
-    doc.text(`Valor da Diaria: R$ ${hospede.valorDiaria.toFixed(2)}`, margemEsq, y);
-    doc.text(`x ${calcularDiariasDecorridas(hospede.checkIn, hospede.checkOut, hospede.statusHospedagem)} diarias`, margemEsq + 100, y);
+    doc.text(`Valor da Diária: R$ ${hospede.valorDiaria.toFixed(2)}`, margemEsq, y);
+    doc.text(`x ${calcularDiariasDecorridas(hospede.checkIn, hospede.checkOut, hospede.statusHospedagem)} diárias`, margemEsq + 100, y);
     doc.text(`R$ ${totalDiarias.toFixed(2)}`, margemEsq + 140, y);
-    y += 10;
+    y += 6;
     
-    // Detalhamento dos Consumos
-    if (hospede.consumos && hospede.consumos.length > 0) {
+    // Consumos da empresa (não marcados por conta do cliente)
+    if (consumosEmpresa.length > 0) {
+      doc.text(`Consumos (empresa): R$ ${totalEmpresa.toFixed(2)}`, margemEsq, y);
+      y += 6;
+    }
+    
+    const totalContaEmpresa = totalDiarias + totalEmpresa;
+    doc.setFont(undefined, 'bold');
+    doc.text(`TOTAL CONTA EMPRESA: R$ ${totalContaEmpresa.toFixed(2)}`, margemEsq, y);
+    y += 15;
+    
+    // Se há consumos por conta do cliente, mostrar separadamente
+    if (consumosCliente.length > 0) {
+      doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
-      doc.text('CONSUMOS:', margemEsq, y);
+      doc.text('CONTA CLIENTE', margemEsq, y);
+      y += 8;
+      doc.line(margemEsq, y, margemEsq + larguraPagina, y);
+      y += 8;
+      
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      doc.text('Consumos por conta do cliente:', margemEsq, y);
       y += 6;
       
+      // Detalhamento dos consumos do cliente
       doc.setFontSize(9);
       doc.text('ITEM', margemEsq, y);
       doc.text('QTD', margemEsq + 80, y);
@@ -880,10 +911,9 @@ function App() {
       y += 4;
       
       doc.setFont(undefined, 'normal');
-      hospede.consumos.forEach(consumo => {
-        // Função mais simples para remover emojis comuns, preservando texto normal
+      consumosCliente.forEach(consumo => {
         const nomeItemCheckout = consumo.nome
-          .replace(/🥤|💧|🍺|☕|🧊|🍫|🥜|🍪/g, '') // Remove apenas emojis específicos conhecidos
+          .replace(/🥤|💧|🍺|☕|🧊|🍫|🥜|🍪/g, '')
           .trim();
         doc.text(nomeItemCheckout.substring(0, 20), margemEsq, y);
         doc.text(`${consumo.quantidade}x`, margemEsq + 80, y);
@@ -895,15 +925,13 @@ function App() {
       y += 4;
       doc.line(margemEsq + 100, y, margemEsq + larguraPagina, y);
       doc.setFont(undefined, 'bold');
-      doc.text('Total Consumos:', margemEsq + 100, y);
-      doc.text(`R$ ${totalConsumos.toFixed(2)}`, margemEsq + 130, y);
-      y += 8;
-    } else {
-      doc.text('Consumos: Nenhum consumo registrado', margemEsq, y);
-      y += 8;
+      doc.text('TOTAL CONTA CLIENTE:', margemEsq + 80, y);
+      doc.text(`R$ ${totalCliente.toFixed(2)}`, margemEsq + 130, y);
+      y += 15;
     }
     
     // Total Final
+    const totalGeral = totalContaEmpresa + totalCliente;
     y += 5;
     doc.setDrawColor(0);
     doc.setFillColor(240, 240, 240);
@@ -911,7 +939,7 @@ function App() {
     
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
-    doc.text('TOTAL A PAGAR:', margemEsq + 5, y + 9);
+    doc.text('TOTAL GERAL:', margemEsq + 5, y + 9);
     doc.text(`R$ ${totalGeral.toFixed(2)}`, margemEsq + larguraPagina - 5, y + 9, { align: 'right' });
     y += 25;
     
@@ -926,7 +954,7 @@ function App() {
     y += 8;
     doc.setFont(undefined, 'normal');
     doc.setFontSize(8);
-    doc.text(`Obrigado pela preferencia! | Check-out realizado em: ${dataImpressao}`, 105, y, { align: 'center' });
+    doc.text(`Obrigado pela preferência! | Check-out realizado em: ${dataImpressao}`, 105, y, { align: 'center' });
     
     // Salvar o PDF
     const nomeArquivo = `Checkout_${hospede.nome.replace(/\s+/g, '_')}_${hospede.data.replace(/\//g, '-')}.pdf`;
@@ -1204,6 +1232,32 @@ function App() {
 
     await cancelarHospedagem(hospedeCancelamento, motivoCancelamento.trim());
     fecharCancelamento();
+  };
+
+  // Função para alternar se um consumo é por conta do cliente
+  const alternarConsumoContaCliente = (consumoId) => {
+    setConsumosPorContaCliente(prev => {
+      const novoSet = new Set(prev);
+      if (novoSet.has(consumoId)) {
+        novoSet.delete(consumoId);
+      } else {
+        novoSet.add(consumoId);
+      }
+      return novoSet;
+    });
+  };
+
+  // Função para calcular totais separados (empresa vs cliente)
+  const calcularTotaisSeparados = (consumos) => {
+    const consumosEmpresa = consumos.filter(c => !consumosPorContaCliente.has(c.id));
+    const consumosCliente = consumos.filter(c => consumosPorContaCliente.has(c.id));
+    
+    return {
+      totalEmpresa: calcularTotalConsumos(consumosEmpresa),
+      totalCliente: calcularTotalConsumos(consumosCliente),
+      consumosEmpresa,
+      consumosCliente
+    };
   };
 
   if (carregando) {
@@ -1739,12 +1793,37 @@ function App() {
               <div className="checkout-resumo">
                 <h3>💰 Resumo Financeiro</h3>
                 <div className="resumo-itens">
-                  <div className="resumo-linha">
-                    <span>Diárias ({calcularDiariasDecorridas(hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem)}x R$ {hospedeCheckout.valorDiaria.toFixed(2)}):</span>
-                    <span>R$ {calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem).toFixed(2)}</span>
+                  
+                  {/* Conta da Empresa */}
+                  <div className="conta-empresa">
+                    <h4>🏢 Conta da Empresa</h4>
+                    <div className="resumo-linha">
+                      <span>Diárias ({calcularDiariasDecorridas(hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem)}x R$ {hospedeCheckout.valorDiaria.toFixed(2)}):</span>
+                      <span>R$ {calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem).toFixed(2)}</span>
+                    </div>
+                    
+                    {/* Consumos da empresa */}
+                    {(() => {
+                      const { totalEmpresa, consumosEmpresa } = calcularTotaisSeparados(hospedeCheckout.consumos || []);
+                      return totalEmpresa > 0 ? (
+                        <div className="resumo-linha">
+                          <span>Consumos (empresa):</span>
+                          <span>R$ {totalEmpresa.toFixed(2)}</span>
+                        </div>
+                      ) : null;
+                    })()}
+                    
+                    <div className="resumo-subtotal">
+                      <span><strong>Subtotal Empresa:</strong></span>
+                      <span><strong>R$ {(() => {
+                        const { totalEmpresa } = calcularTotaisSeparados(hospedeCheckout.consumos || []);
+                        const totalDiarias = calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem);
+                        return (totalDiarias + totalEmpresa).toFixed(2);
+                      })()}</strong></span>
+                    </div>
                   </div>
                   
-                  {/* Detalhamento dos Consumos */}
+                  {/* Detalhamento dos Consumos com Checkboxes */}
                   {carregandoConsumos ? (
                     <div className="loading-consumos">
                       <span>🔄 Carregando consumos...</span>
@@ -1752,20 +1831,30 @@ function App() {
                   ) : hospedeCheckout.consumos && hospedeCheckout.consumos.length > 0 ? (
                     <div className="consumos-detalhamento">
                       <div className="consumos-header-checkout">
-                        <strong>🛒 Consumos Detalhados:</strong>
+                        <strong>🛒 Consumos - Quem Paga?</strong>
+                        <small>(Marque os que são por conta do cliente)</small>
                       </div>
                       {hospedeCheckout.consumos.map(consumo => (
-                        <div key={consumo.id} className="consumo-linha-checkout">
-                          <span className="consumo-item-nome">{consumo.nome}</span>
-                          <span className="consumo-qtd">{consumo.quantidade}x</span>
-                          <span className="consumo-valor-unit">R$ {consumo.preco.toFixed(2)}</span>
-                          <span className="consumo-subtotal">R$ {(consumo.preco * consumo.quantidade).toFixed(2)}</span>
+                        <div key={consumo.id} className="consumo-linha-checkout-novo">
+                          <div className="consumo-checkbox">
+                            <input
+                              type="checkbox"
+                              id={`consumo-${consumo.id}`}
+                              checked={consumosPorContaCliente.has(consumo.id)}
+                              onChange={() => alternarConsumoContaCliente(consumo.id)}
+                            />
+                            <label htmlFor={`consumo-${consumo.id}`}>
+                              {consumosPorContaCliente.has(consumo.id) ? '👤 Cliente paga' : '🏢 Empresa paga'}
+                            </label>
+                          </div>
+                          <div className="consumo-info">
+                            <span className="consumo-item-nome">{consumo.nome}</span>
+                            <span className="consumo-qtd">{consumo.quantidade}x</span>
+                            <span className="consumo-valor-unit">R$ {consumo.preco.toFixed(2)}</span>
+                            <span className="consumo-subtotal">R$ {(consumo.preco * consumo.quantidade).toFixed(2)}</span>
+                          </div>
                         </div>
                       ))}
-                      <div className="consumos-total-linha">
-                        <span><strong>Total Consumos:</strong></span>
-                        <span><strong>R$ {calcularTotalConsumos(hospedeCheckout.consumos).toFixed(2)}</strong></span>
-                      </div>
                     </div>
                   ) : (
                     <div className="resumo-linha">
@@ -1774,9 +1863,31 @@ function App() {
                     </div>
                   )}
                   
+                  {/* Conta do Cliente (se houver) */}
+                  {(() => {
+                    const { totalCliente } = calcularTotaisSeparados(hospedeCheckout.consumos || []);
+                    return totalCliente > 0 ? (
+                      <div className="conta-cliente">
+                        <h4>👤 Conta do Cliente</h4>
+                        <div className="resumo-linha">
+                          <span>Consumos (cliente):</span>
+                          <span>R$ {totalCliente.toFixed(2)}</span>
+                        </div>
+                        <div className="resumo-subtotal">
+                          <span><strong>Subtotal Cliente:</strong></span>
+                          <span><strong>R$ {totalCliente.toFixed(2)}</strong></span>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                  
                   <div className="resumo-total">
                     <span><strong>TOTAL GERAL:</strong></span>
-                    <span><strong>R$ {(calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem) + calcularTotalConsumos(hospedeCheckout.consumos || [])).toFixed(2)}</strong></span>
+                    <span><strong>R$ {(() => {
+                      const { totalEmpresa, totalCliente } = calcularTotaisSeparados(hospedeCheckout.consumos || []);
+                      const totalDiarias = calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem);
+                      return (totalDiarias + totalEmpresa + totalCliente).toFixed(2);
+                    })()}</strong></span>
                   </div>
                 </div>
               </div>

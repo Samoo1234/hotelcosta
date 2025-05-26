@@ -2192,3 +2192,269 @@ input::placeholder {
 .cancelamento-warning strong {
   color: #dc3545;
 }
+
+/* Seção Corporativa */
+.corporativo-section {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.corporativo-section label {
+  font-weight: bold;
+  color: #007bff;
+  display: flex;
+  align-items: center;
+}
+
+.campos-corporativos {
+  margin-top: 15px;
+  padding: 15px;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.badge-corporativo {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-left: 8px;
+  font-weight: bold;
+  box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
+}
+
+/* Checkout Corporativo */
+.resumo-corporativo {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 10px 0;
+}
+
+.conta-empresa {
+  background: #e3f2fd;
+  border: 2px solid #2196f3;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.conta-empresa h4 {
+  color: #1976d2;
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.conta-hospede {
+  background: #fff3e0;
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.conta-hospede h4 {
+  color: #f57c00;
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.resumo-total-empresa,
+.resumo-total-hospede {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.resumo-total-separado {
+  background: linear-gradient(135deg, #f1f3f4, #e8eaed);
+  border: 2px solid #4caf50;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 15px;
+}
+
+.total-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.total-geral-separado {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  font-size: 16px;
+  font-weight: bold;
+  color: #2e7d32;
+  border-top: 2px solid #4caf50;
+  margin-top: 10px;
+}
+
+/* Novos estilos para checkout com separação por conta */
+.conta-empresa,
+.conta-cliente {
+  background: rgba(40, 167, 69, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 15px;
+  border: 1px solid rgba(40, 167, 69, 0.1);
+}
+
+.conta-empresa h4 {
+  color: #28a745;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.conta-cliente h4 {
+  color: #007bff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resumo-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 0.95rem;
+  color: #2d3748;
+}
+
+.resumo-subtotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0 8px 0;
+  margin-top: 8px;
+  border-top: 1px solid rgba(40, 167, 69, 0.2);
+  font-weight: 600;
+}
+
+.resumo-total {
+  background: linear-gradient(45deg, #28a745, #20c997);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 20px;
+}
+
+/* Consumos com checkboxes */
+.consumo-linha-checkout-novo {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(40, 167, 69, 0.1);
+}
+
+.consumo-linha-checkout-novo:last-child {
+  border-bottom: none;
+}
+
+.consumo-checkbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+
+.consumo-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #007bff;
+  margin-bottom: 5px;
+}
+
+.consumo-checkbox label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  color: #495057;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.consumo-checkbox input:checked + label {
+  color: #007bff;
+}
+
+.consumo-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  gap: 15px;
+}
+
+.consumos-header-checkout small {
+  display: block;
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: normal;
+  margin-top: 5px;
+}
+
+/* Responsividade para novos estilos */
+@media (max-width: 768px) {
+  .consumo-linha-checkout-novo {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .consumo-checkbox {
+    min-width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .consumo-checkbox input[type="checkbox"] {
+    margin-bottom: 0;
+  }
+  
+  .consumo-info {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  
+  .conta-empresa h4,
+  .conta-cliente h4 {
+    font-size: 1rem;
+  }
+  
+  .resumo-linha,
+  .resumo-subtotal,
+  .resumo-total {
+    font-size: 0.9rem;
+  }
+  
+  .resumo-total {
+    padding: 12px 15px;
+  }
+}
