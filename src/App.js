@@ -155,6 +155,29 @@ function App() {
 
   // ==================== FUNÇÕES UTILITÁRIAS ====================
 
+  // Função para obter data/hora no fuso horário local brasileiro
+  const obterDataHoraLocal = () => {
+    const agora = new Date();
+    
+    // Usar diretamente o horário local do sistema
+    console.log('🇧🇷 Horário local do sistema:', agora.toLocaleString('pt-BR'));
+    console.log('🌍 Horário UTC:', agora.toUTCString());
+    console.log('⚡ Offset do navegador (min):', agora.getTimezoneOffset());
+    
+    return agora;
+  };
+
+  // Função para converter data para formato datetime-local (YYYY-MM-DDTHH:mm)
+  const formatarParaDatetimeLocal = (data) => {
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const dia = String(data.getDate()).padStart(2, '0');
+    const horas = String(data.getHours()).padStart(2, '0');
+    const minutos = String(data.getMinutes()).padStart(2, '0');
+    
+    return `${ano}-${mes}-${dia}T${horas}:${minutos}`;
+  };
+
   // Função para converter data do formato ISO para DD/MM/AAAA
   const formatarDataParaExibicao = (dataISO) => {
     if (!dataISO) return '';
@@ -372,7 +395,11 @@ function App() {
     
     try {
       const dataFormatada = formatarDataParaExibicao(formulario.data);
-      const checkInFinal = formulario.checkIn || new Date().toISOString().slice(0, 16);
+      
+      // Se não informar check-in, usar horário local brasileiro atual
+      const checkInFinal = formulario.checkIn || formatarParaDatetimeLocal(obterDataHoraLocal());
+      
+      console.log('📝 Check-in definido como:', checkInFinal);
       
       const dadosHospede = {
         ...formulario,
@@ -723,12 +750,22 @@ function App() {
     if (!hospedeCheckout) return;
 
     try {
-      const agora = new Date();
-      const checkOut = agora.toISOString().slice(0, 16);
+      // Usar horário local brasileiro para evitar problemas de fuso horário
+      const agoraLocal = obterDataHoraLocal();
+      
+      // 🔍 DEBUG: Vamos ver exatamente que horas são
+      console.log('🕒 DEBUG HORÁRIOS (CORRIGIDO):');
+      console.log('  - Check-in original:', hospedeCheckout.checkIn);
+      console.log('  - Check-in parseado:', new Date(hospedeCheckout.checkIn).toLocaleString('pt-BR'));
+      
+      const checkOut = formatarParaDatetimeLocal(agoraLocal);
+      console.log('  - Check-out será salvo como:', checkOut);
+      console.log('  - Check-out em local:', new Date(checkOut).toLocaleString('pt-BR'));
+      
       const totalDiarias = calcularTotalDiarias(hospedeCheckout.valorDiaria, hospedeCheckout.checkIn);
       const totalConsumos = calcularTotalConsumos(hospedeCheckout.consumos || []);
       const totalFinal = totalDiarias + totalConsumos;
-      const tempoEstadia = formatarTempoDecorrido(hospedeCheckout.checkIn);
+      const tempoEstadia = formatarTempoDecorrido(hospedeCheckout.checkIn, hospedeCheckout.checkOut, hospedeCheckout.statusHospedagem);
       
       console.log('💰 Finalizando hospedagem:');
       console.log('  - Total diárias:', totalDiarias);
@@ -738,7 +775,7 @@ function App() {
       
       const dadosCheckout = {
         checkOut,
-        dataFinalizacao: agora.toISOString(), // Usar formato ISO para garantir compatibilidade
+        dataFinalizacao: agoraLocal.toISOString(), // Para compatibilidade com a função de edição
         totalFinal,
         totalDiarias,
         totalConsumos,
@@ -755,7 +792,7 @@ function App() {
       gerarPDFCheckout(hospedeCheckout, checkOut);
       
       fecharCheckout();
-      console.log('✅ Hospedagem finalizada e salva no histórico!');
+      console.log('✅ Hospedagem finalizada com horário correto!');
     } catch (error) {
       console.error('❌ Erro ao finalizar hospedagem:', error);
       alert('Erro ao finalizar hospedagem: ' + error.message);
