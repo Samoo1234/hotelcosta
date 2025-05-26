@@ -86,12 +86,18 @@ export const removerHospede = async (hospedeId) => {
 export const finalizarHospedagem = async (hospedeId, dadosCheckout) => {
   try {
     const hospedeRef = doc(db, 'hospedes', hospedeId);
+    
+    // Usar o status dos dados recebidos, ou 'FINALIZADO' como padrão
+    const statusFinal = dadosCheckout.statusHospedagem || 'FINALIZADO';
+    
     await updateDoc(hospedeRef, {
-      statusHospedagem: 'FINALIZADO',
-      pago: 'PG', // Automaticamente marca como PAGO no checkout
+      statusHospedagem: statusFinal,
+      ...(statusFinal === 'FINALIZADO' && { pago: 'PG' }), // Só marca como PAGO se for finalização normal
       checkOut: dadosCheckout.checkOut,
       dataFinalizacao: dadosCheckout.dataFinalizacao,
       totalFinal: dadosCheckout.totalFinal,
+      // Incluir todos os outros dados recebidos
+      ...dadosCheckout,
       updatedAt: serverTimestamp()
     });
 

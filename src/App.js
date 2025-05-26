@@ -198,8 +198,8 @@ function App() {
     
     const dataCheckIn = new Date(checkIn);
     
-    // Se está finalizado, usar a data de checkout, senão usar data atual
-    const dataFinal = (statusHospedagem === 'FINALIZADO' && checkOut) 
+    // Se está finalizado ou cancelado, usar a data de checkout, senão usar data atual
+    const dataFinal = (statusHospedagem === 'FINALIZADO' || statusHospedagem === 'CANCELADO') && checkOut 
       ? new Date(checkOut) 
       : agora;
     
@@ -251,8 +251,8 @@ function App() {
     
     const dataCheckIn = new Date(checkIn);
     
-    // Se está finalizado, usar a data de checkout, senão usar data atual
-    const dataFinal = (statusHospedagem === 'FINALIZADO' && checkOut) 
+    // Se está finalizado ou cancelado, usar a data de checkout, senão usar data atual
+    const dataFinal = (statusHospedagem === 'FINALIZADO' || statusHospedagem === 'CANCELADO') && checkOut 
       ? new Date(checkOut) 
       : agora;
     
@@ -1093,20 +1093,12 @@ function App() {
     // Fallback: se não há statusHospedagem, considera ATIVO por padrão
     const statusHospedagemAtual = hospede.statusHospedagem || 'ATIVO';
     
-    // Debug da lógica de filtro
-    console.log(`🔍 Filtro - ${hospede.nome}:`);
-    console.log(`   - statusHospedagem: ${statusHospedagemAtual}`);
-    console.log(`   - mostrarHistorico: ${mostrarHistorico}`);
-    console.log(`   - deve mostrar: ${mostrarHistorico ? statusHospedagemAtual === 'FINALIZADO' : statusHospedagemAtual === 'ATIVO'}`);
-    
+    // Lógica de exibição por status
     const statusHospedagem = mostrarHistorico ? 
-      statusHospedagemAtual === 'FINALIZADO' : 
+      (statusHospedagemAtual === 'FINALIZADO' || statusHospedagemAtual === 'CANCELADO') : 
       statusHospedagemAtual === 'ATIVO';
     
-    const resultado = matchNome && matchStatus && statusHospedagem;
-    console.log(`   - resultado final: ${resultado}`);
-    
-    return resultado;
+    return matchNome && matchStatus && statusHospedagem;
   });
 
   // Recalcular com base no statusHospedagem correto
@@ -1119,7 +1111,11 @@ function App() {
     return h.statusHospedagem === 'FINALIZADO';
   });
 
-  console.log(`📊 Recálculo - ATIVOS: ${hospedesAtivos.length}, FINALIZADOS: ${hospedesFinalizados.length}`);
+  const hospedesCancelados = hospedes.filter(h => {
+    return h.statusHospedagem === 'CANCELADO';
+  });
+
+  console.log(`📊 Recálculo - ATIVOS: ${hospedesAtivos.length}, FINALIZADOS: ${hospedesFinalizados.length}, CANCELADOS: ${hospedesCancelados.length}`);
 
   const totalHospedes = hospedesAtivos.length;
   const totalPago = hospedesAtivos.filter(h => h.pago === 'PG').length;
@@ -1130,6 +1126,85 @@ function App() {
     acc + calcularTotalDiarias(h.valorDiaria, h.checkIn, h.checkOut, h.statusHospedagem), 0
   );
   const faturamentoConsumos = 0; // Será calculado quando necessário
+
+  // ==================== SISTEMA DE CANCELAMENTO SEGURO ====================
+
+  const cancelarHospedagem = async (hospede, motivo) => {
+    if (!hospede || !motivo) return;
+
+    try {
+      const agoraLocal = obterDataHoraLocal();
+      
+      console.log('🚫 Cancelando hospedagem:', hospede.nome);
+      console.log('📋 Motivo:', motivo);
+      
+      const dadosCancelamento = {
+        statusHospedagem: 'CANCELADO',
+        pago: 'CANCELADO', // Status específico para cancelamentos - não manter o pagamento original
+        dataCancelamento: agoraLocal.toISOString(),
+        dataFinalizacao: agoraLocal.toISOString(), // Adicionar campo dataFinalizacao
+        motivoCancelamento: motivo,
+        checkOut: formatarParaDatetimeLocal(agoraLocal), // Marcar como saída
+        totalFinal: 0, // Sem cobrança para cancelamentos rápidos
+        totalDiarias: 0,
+        totalConsumos: calcularTotalConsumos(hospede.consumos || []),
+        tempoEstadia: formatarTempoDecorrido(hospede.checkIn, null, 'ATIVO'),
+        canceladoPor: 'SISTEMA', // Pode ser expandido para incluir usuário logado
+        observacoesCancelamento: `Cancelamento realizado ${formatarTempoDecorrido(hospede.checkIn, null, 'ATIVO')} após check-in`
+      };
+
+      // Atualizar no Firestore
+      await finalizarHospedagemFirestore(hospede.id, dadosCancelamento);
+      
+      // Salvar no histórico como cancelamento (para auditoria)
+      await salvarHistoricoCheckout(hospede, dadosCancelamento, hospede.consumos || []);
+      
+      console.log('✅ Hospedagem cancelada e registrada no histórico para auditoria');
+      alert(`✅ Hospedagem cancelada com sucesso!\n📋 Motivo: ${motivo}\n🔍 Registro mantido no histórico para auditoria.`);
+      
+    } catch (error) {
+      console.error('❌ Erro ao cancelar hospedagem:', error);
+      alert('Erro ao cancelar hospedagem: ' + error.message);
+    }
+  };
+
+  // Verificar se hospedagem pode ser cancelada (apenas primeiros 30 minutos)
+  const podeSerCancelada = (hospede) => {
+    if (!hospede.checkIn || hospede.statusHospedagem !== 'ATIVO') return false;
+    
+    const dataCheckIn = new Date(hospede.checkIn);
+    const agora = new Date();
+    const minutosDecorridos = (agora.getTime() - dataCheckIn.getTime()) / (1000 * 60);
+    
+    return minutosDecorridos <= 30; // Só permite cancelar em até 30 minutos
+  };
+
+  // Modal de cancelamento
+  const [mostrarCancelamento, setMostrarCancelamento] = useState(false);
+  const [hospedeCancelamento, setHospedeCancelamento] = useState(null);
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
+
+  const abrirCancelamento = (hospede) => {
+    setHospedeCancelamento(hospede);
+    setMostrarCancelamento(true);
+    setMotivoCancelamento('');
+  };
+
+  const fecharCancelamento = () => {
+    setMostrarCancelamento(false);
+    setHospedeCancelamento(null);
+    setMotivoCancelamento('');
+  };
+
+  const confirmarCancelamento = async () => {
+    if (!motivoCancelamento.trim()) {
+      alert('Por favor, informe o motivo do cancelamento.');
+      return;
+    }
+
+    await cancelarHospedagem(hospedeCancelamento, motivoCancelamento.trim());
+    fecharCancelamento();
+  };
 
   if (carregando) {
     return (
@@ -1254,9 +1329,19 @@ function App() {
                 <td>{hospede.telefone}</td>
                 <td className="quarto-cell">{hospede.quartos}</td>
                 <td>
+                  {hospede.statusHospedagem === 'CANCELADO' || hospede.pago === 'CANCELADO' ? (
+                    <span className="status cancelado">
+                      🚫 Cancelado
+                    </span>
+                  ) : hospede.statusHospedagem === 'FINALIZADO' ? (
+                    <span className="status finalizado">
+                      ✅ Finalizado
+                    </span>
+                  ) : (
                   <span className={`status ${hospede.pago === 'PG' ? 'pago' : 'pendente'}`}>
                     {hospede.pago === 'PG' ? '✅ Pago' : '⏳ Pendente'}
                   </span>
+                  )}
                 </td>
                 <td>R$ {hospede.valorDiaria.toFixed(2)}</td>
                 <td className="tempo-cell">
@@ -1303,6 +1388,15 @@ function App() {
                         title="Finalizar Hospedagem"
                       >
                         🏁
+                      </button>
+                    )}
+                    {!mostrarHistorico && podeSerCancelada(hospede) && (
+                      <button
+                        onClick={() => abrirCancelamento(hospede)}
+                        className="btn-cancel"
+                        title="Cancelar Hospedagem (até 30min)"
+                      >
+                        🚫
                       </button>
                     )}
                     {podeEditarHospede(hospede) ? (
@@ -1882,6 +1976,74 @@ function App() {
               <button onClick={fecharGerenciamentoProdutos} className="btn-primary">
                 ✅ Finalizar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cancelamento */}
+      {mostrarCancelamento && hospedeCancelamento && (
+        <div className="modal-overlay">
+          <div className="modal modal-cancelamento">
+            <div className="cancelamento-header">
+              <h2>🚫 Cancelamento de Hospedagem</h2>
+              <button onClick={fecharCancelamento} className="btn-close">✖️</button>
+            </div>
+
+            <div className="cancelamento-content">
+              <div className="cancelamento-info">
+                <h3>👤 Dados do Hóspede</h3>
+                <div className="info-grid">
+                  <div><strong>Nome:</strong> {hospedeCancelamento.nome}</div>
+                  <div><strong>Quarto:</strong> {hospedeCancelamento.quartos}</div>
+                  <div><strong>Check-in:</strong> {new Date(hospedeCancelamento.checkIn).toLocaleString('pt-BR')}</div>
+                  <div><strong>Tempo decorrido:</strong> {formatarTempoDecorrido(hospedeCancelamento.checkIn, null, 'ATIVO')}</div>
+                </div>
+                
+                <div className="form-group">
+                  <label><strong>📋 Motivo do Cancelamento:</strong></label>
+                  <select
+                    value={motivoCancelamento}
+                    onChange={(e) => setMotivoCancelamento(e.target.value)}
+                    required
+                  >
+                    <option value="">Selecione o motivo...</option>
+                    <option value="Cliente desistiu">Cliente desistiu</option>
+                    <option value="Problema no quarto">Problema no quarto</option>
+                    <option value="Check-in por engano">Check-in por engano</option>
+                    <option value="Questões de pagamento">Questões de pagamento</option>
+                    <option value="Emergência do cliente">Emergência do cliente</option>
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="cancelamento-resumo">
+                <h3>💰 Resumo Financeiro</h3>
+                <div className="resumo-itens">
+                  <div className="resumo-linha">
+                    <span>Total Diárias:</span>
+                    <span>R$ 0,00 (Cancelamento rápido)</span>
+                  </div>
+                  <div className="resumo-linha">
+                    <span>Total Consumos:</span>
+                    <span>R$ {calcularTotalConsumos(hospedeCancelamento.consumos || []).toFixed(2)}</span>
+                  </div>
+                  <div className="resumo-total">
+                    <span><strong>TOTAL GERAL:</strong></span>
+                    <span><strong>R$ {calcularTotalConsumos(hospedeCancelamento.consumos || []).toFixed(2)}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="cancelamento-actions">
+                <button onClick={fecharCancelamento} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button onClick={confirmarCancelamento} className="btn-primary">
+                  ✅ Confirmar Cancelamento
+                </button>
+              </div>
             </div>
           </div>
         </div>

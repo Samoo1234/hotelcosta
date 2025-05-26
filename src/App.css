@@ -678,6 +678,18 @@ input::placeholder {
   border: 1px solid #ffeaa7;
 }
 
+.status.cancelado {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  border: 1px solid #bd2130;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.status.finalizado {
+  background: linear-gradient(135deg, #28a745, #218838);
+  border: 1px solid #1e7e34;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
 /* Botões de ação */
 .action-buttons {
   display: flex;
@@ -2083,4 +2095,100 @@ input::placeholder {
 .btn-delete.disabled:hover {
   background: #ccc !important;
   transform: none !important;
+}
+
+/* Estilos para sistema de cancelamento */
+.btn-cancel {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.status.cancelado {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  border: 1px solid #bd2130;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.status.finalizado {
+  background: linear-gradient(135deg, #28a745, #218838);
+  border: 1px solid #1e7e34;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+/* Modal de cancelamento */
+.modal-cancelamento {
+  max-width: 600px;
+  width: 90%;
+}
+
+.cancelamento-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  background: #f8f9fa;
+}
+
+.cancelamento-header h2 {
+  margin: 0;
+  color: #dc3545;
+}
+
+.cancelamento-content {
+  padding: 20px;
+}
+
+.cancelamento-info {
+  margin-bottom: 20px;
+}
+
+.cancelamento-resumo {
+  margin-bottom: 20px;
+  border-top: 1px solid #eee;
+  padding-top: 15px;
+}
+
+.cancelamento-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.cancelamento-actions button {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 16px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Aviso de periodo de cancelamento */
+.cancelamento-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.cancelamento-warning strong {
+  color: #dc3545;
 }
