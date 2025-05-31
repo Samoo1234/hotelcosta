@@ -20,7 +20,9 @@ import {
   removerConsumo as removerConsumoFirestore,
   salvarHistoricoCheckout,
   verificarColecaoConsumos,
-  migrarConsumosLocaisParaFirestore
+  migrarConsumosLocaisParaFirestore,
+  verificarAtualizarDiarias,
+  registrarPagamentoDiaria
 } from './services/firestoreService';
 
 function App() {
@@ -36,12 +38,14 @@ function App() {
   const [mostrarCheckout, setMostrarCheckout] = useState(false);
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [mostrarProdutos, setMostrarProdutos] = useState(false);
+  const [mostrarDiarias, setMostrarDiarias] = useState(false);
   const [carregandoConsumos, setCarregandoConsumos] = useState(false);
   
   // Estados dos hóspedes selecionados
   const [hospedeCheckout, setHospedeCheckout] = useState(null);
   const [hospedeConsumos, setHospedeConsumos] = useState(null);
   const [hospedeFicha, setHospedeFicha] = useState(null);
+  const [hospedeDiarias, setHospedeDiarias] = useState(null);
   const [editando, setEditando] = useState(null);
   const [produtoEditando, setProdutoEditando] = useState(null);
   
@@ -61,11 +65,23 @@ function App() {
   // Estado do formulário
   const [formulario, setFormulario] = useState({
     data: '',
+    tipoPessoa: 'fisica',
     nome: '',
     telefone: '',
     rg: '',
     cpf: '',
+    cnpj: '',
+    razaoSocial: '',
     cnh: '',
+    // Campos de endereço
+    logradouro: '',
+    numero: '',
+    complemento: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+    cep: '',
+    // Campos originais
     quartos: '',
     pago: '',
     valorDiaria: '',
@@ -112,6 +128,13 @@ function App() {
         console.log('👥 Configurando listener de hóspedes...');
         const unsubscribe = escutarHospedes(async (hospedesRecebidos) => {
           console.log('📊 Hóspedes atualizados:', hospedesRecebidos.length);
+          
+          // Verificar e atualizar diárias para hóspedes ativos
+          for (const hospede of hospedesRecebidos) {
+            if (hospede.statusHospedagem === 'ATIVO') {
+              await verificarAtualizarDiarias(hospede.id);
+            }
+          }
           
           // Carregar consumos para cada hóspede
           console.log('🛒 Carregando consumos para todos os hóspedes...');
@@ -421,7 +444,28 @@ function App() {
       }
       
       // Limpar formulário
-      setFormulario({ data: '', nome: '', telefone: '', rg: '', cpf: '', cnh: '', quartos: '', pago: '', valorDiaria: '', checkIn: '' });
+      setFormulario({
+        data: '',
+        tipoPessoa: 'fisica',
+        nome: '',
+        telefone: '',
+        rg: '',
+        cpf: '',
+        cnpj: '',
+        razaoSocial: '',
+        cnh: '',
+        logradouro: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
+        cep: '',
+        quartos: '',
+        pago: '',
+        valorDiaria: '',
+        checkIn: ''
+      });
       setMostrarFormulario(false);
       setEditando(null);
     } catch (error) {
@@ -434,19 +478,31 @@ function App() {
     setEditando(hospede);
     setFormulario({
       data: formatarDataParaISO(hospede.data),
-      nome: hospede.nome,
+      tipoPessoa: hospede.tipoPessoa || 'fisica',
+      nome: hospede.nome || '',
       telefone: hospede.telefone || '',
       rg: hospede.rg || '',
       cpf: hospede.cpf || '',
       cnh: hospede.cnh || '',
-      quartos: hospede.quartos.toString(),
-      pago: hospede.pago,
-      valorDiaria: hospede.valorDiaria.toString(),
+      cnpj: hospede.cnpj || '',
+      razaoSocial: hospede.razaoSocial || '',
+      logradouro: hospede.logradouro || '',
+      numero: hospede.numero || '',
+      complemento: hospede.complemento || '',
+      bairro: hospede.bairro || '',
+      cidade: hospede.cidade || '',
+      estado: hospede.estado || '',
+      cep: hospede.cep || '',
+      quartos: hospede.quartos?.toString() || '',
+      pago: hospede.pago || '',
+      valorDiaria: hospede.valorDiaria?.toString() || '',
       checkIn: hospede.checkIn || ''
     });
     setMostrarFormulario(true);
   };
 
+  // Esta função será usada futuramente pelo sistema de administração
+  // eslint-disable-next-line no-unused-vars
   const removerHospede = async (hospedeId) => {
     if (window.confirm('Tem certeza que deseja remover este hóspede?')) {
       try {
@@ -749,6 +805,45 @@ function App() {
     setHospedeCheckout(null);
     setConsumosPorContaCliente(new Set()); // Resetar consumos por conta do cliente
   };
+  
+  // ==================== HANDLERS DAS DIÁRIAS ====================
+  
+  const abrirDiarias = async (hospede) => {
+    try {
+      // Verificar e atualizar diárias antes de abrir o modal
+      await verificarAtualizarDiarias(hospede.id);
+      
+      // Buscar dados atualizados do hóspede para exibir diárias
+      const hospedeAtualizado = hospedes.find(h => h.id === hospede.id);
+      setHospedeDiarias(hospedeAtualizado);
+      setMostrarDiarias(true);
+    } catch (error) {
+      console.error('❌ Erro ao abrir gerenciamento de diárias:', error);
+      alert('Erro ao abrir gerenciamento de diárias: ' + error.message);
+    }
+  };
+  
+  const fecharDiarias = () => {
+    setMostrarDiarias(false);
+    setHospedeDiarias(null);
+  };
+  
+  const pagarDiaria = async (numeroDiaria) => {
+    try {
+      if (!hospedeDiarias) return;
+      
+      await registrarPagamentoDiaria(hospedeDiarias.id, numeroDiaria);
+      
+      // Atualizar informações do hóspede após o pagamento
+      const hospedeAtualizado = hospedes.find(h => h.id === hospedeDiarias.id);
+      setHospedeDiarias(hospedeAtualizado);
+      
+      alert(`✅ Diária ${numeroDiaria} paga com sucesso!`);
+    } catch (error) {
+      console.error('❌ Erro ao pagar diária:', error);
+      alert('Erro ao pagar diária: ' + error.message);
+    }
+  };
 
   const finalizarHospedagem = async () => {
     if (!hospedeCheckout) return;
@@ -1007,13 +1102,32 @@ function App() {
       y += 5;
     };
     
-    // Dados Pessoais
-    adicionarSecao('Dados Pessoais', [
-      { label: 'Nome Completo', valor: hospedeFicha.nome },
-      { label: 'Telefone', valor: hospedeFicha.telefone || 'Nao informado' },
-      { label: 'RG', valor: hospedeFicha.rg || 'Nao informado' },
-      { label: 'CPF', valor: hospedeFicha.cpf || 'Nao informado' },
-      { label: 'CNH', valor: hospedeFicha.cnh || 'Nao possui' }
+    // Dados Pessoais ou Dados Corporativos dependendo do tipo de pessoa
+    if (hospedeFicha.tipoPessoa === 'juridica') {
+      adicionarSecao('Dados Corporativos', [
+        { label: 'Razão Social', valor: hospedeFicha.razaoSocial || 'Nao informado' },
+        { label: 'CNPJ', valor: hospedeFicha.cnpj || 'Nao informado' },
+        { label: 'Telefone', valor: hospedeFicha.telefone || 'Nao informado' }
+      ]);
+    } else {
+      adicionarSecao('Dados Pessoais', [
+        { label: 'Nome Completo', valor: hospedeFicha.nome },
+        { label: 'Telefone', valor: hospedeFicha.telefone || 'Nao informado' },
+        { label: 'RG', valor: hospedeFicha.rg || 'Nao informado' },
+        { label: 'CPF', valor: hospedeFicha.cpf || 'Nao informado' },
+        { label: 'CNH', valor: hospedeFicha.cnh || 'Nao possui' }
+      ]);
+    }
+    
+    // Seção de Endereço
+    adicionarSecao('Endereco', [
+      { label: 'Logradouro', valor: hospedeFicha.logradouro || 'Nao informado' },
+      { label: 'Numero', valor: hospedeFicha.numero || 'Nao informado' },
+      { label: 'Complemento', valor: hospedeFicha.complemento || 'Nao informado' },
+      { label: 'Bairro', valor: hospedeFicha.bairro || 'Nao informado' },
+      { label: 'Cidade', valor: hospedeFicha.cidade || 'Nao informado' },
+      { label: 'Estado', valor: hospedeFicha.estado || 'Nao informado' },
+      { label: 'CEP', valor: hospedeFicha.cep || 'Nao informado' }
     ]);
     
     // Dados da Hospedagem
@@ -1423,7 +1537,7 @@ function App() {
                     className="btn-consumos"
                     title="Gerenciar Consumos"
                   >
-                    🛒 Consumos
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg> Consumos
                   </button>
                 </td>
                 <td>
@@ -1433,16 +1547,25 @@ function App() {
                       className="btn-ficha"
                       title="Ver Ficha Completa"
                     >
-                      📋
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     </button>
                     {!mostrarHistorico && (
-                      <button
-                        onClick={() => abrirCheckout(hospede)}
-                        className="btn-checkout"
-                        title="Finalizar Hospedagem"
-                      >
-                        🏁
-                      </button>
+                      <>
+                        <button
+                          onClick={() => abrirDiarias(hospede)}
+                          className="btn-diarias"
+                          title="Gerenciar Diárias"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </button>
+                        <button
+                          onClick={() => abrirCheckout(hospede)}
+                          className="btn-checkout"
+                          title="Finalizar Hospedagem"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        </button>
+                      </>
                     )}
                     {!mostrarHistorico && podeSerCancelada(hospede) && (
                       <button
@@ -1450,7 +1573,7 @@ function App() {
                         className="btn-cancel"
                         title="Cancelar Hospedagem (até 30min)"
                       >
-                        🚫
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                       </button>
                     )}
                     {podeEditarHospede(hospede) ? (
@@ -1460,14 +1583,7 @@ function App() {
                           className="btn-edit"
                           title="Editar"
                         >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => removerHospede(hospede.id)}
-                          className="btn-delete"
-                          title="Remover"
-                        >
-                          🗑️
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                         </button>
                       </>
                     ) : (
@@ -1477,14 +1593,7 @@ function App() {
                           title="Bloqueado - Mais de 1 hora após finalização"
                           disabled
                         >
-                          🔒
-                        </button>
-                        <button
-                          className="btn-delete disabled"
-                          title="Bloqueado - Mais de 1 hora após finalização"
-                          disabled
-                        >
-                          🔒
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                         </button>
                       </>
                     )}
@@ -1531,74 +1640,165 @@ function App() {
                 </div>
               </div>
 
+              {/* Tipo de Pessoa */}
               <div className="form-group">
-                <label>👤 Nome Completo:</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={formulario.nome}
-                    onChange={handleNomeChange}
-                    onFocus={() => {
-                      if (formulario.nome && !editando) {
-                        buscarHospedesExistentes(formulario.nome);
-                      }
-                    }}
-                    onBlur={() => {
-                      // Delay para permitir clique nas sugestões
-                      setTimeout(() => setMostrarSugestoes(false), 200);
-                    }}
-                    placeholder="Digite o nome completo do hóspede"
-                    required
-                  />
-                  
-                  {/* Loading de busca */}
-                  {buscandoHospede && (
-                    <div style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#6c757d',
-                      fontSize: '0.8rem'
-                    }}>
-                      🔍 Buscando...
-                    </div>
-                  )}
-                  
-                  {/* Sugestões de hóspedes existentes */}
-                  {mostrarSugestoes && sugestoesHospedes.length > 0 && !editando && (
-                    <div className="sugestoes-hospedes">
-                      <div className="sugestoes-header">
-                        <span>🔍 Hóspedes encontrados (evitar duplicatas):</span>
-                      </div>
-                      {sugestoesHospedes.map((hospede, index) => (
-                        <div
-                          key={hospede.id + '-' + index}
-                          className="sugestao-item"
-                          onClick={() => selecionarHospedeExistente(hospede)}
-                        >
-                          <div className="sugestao-nome">{hospede.nome}</div>
-                          <div className="sugestao-detalhes">
-                            {hospede.telefone && <span>📞 {hospede.telefone}</span>}
-                            {hospede.cpf && <span>📄 {hospede.cpf}</span>}
-                            <span className={`sugestao-status ${hospede.statusHospedagem?.toLowerCase()}`}>
-                              {hospede.statusHospedagem === 'FINALIZADO' ? '✅ Histórico' : '🟢 Ativo'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <label>👥 Tipo de Pessoa:</label>
+                <div className="radio-group">
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      name="tipoPessoa"
+                      value="fisica"
+                      checked={formulario.tipoPessoa === 'fisica'}
+                      onChange={(e) => setFormulario({...formulario, tipoPessoa: e.target.value})}
+                    />
+                    Pessoa Física
+                  </label>
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      name="tipoPessoa"
+                      value="juridica"
+                      checked={formulario.tipoPessoa === 'juridica'}
+                      onChange={(e) => setFormulario({...formulario, tipoPessoa: e.target.value})}
+                    />
+                    Pessoa Jurídica
+                  </label>
                 </div>
-                
-                {/* Aviso sobre cliente existente */}
-                {mostrarSugestoes && sugestoesHospedes.length > 0 && !editando && (
-                  <small style={{ color: '#28a745', fontWeight: 'bold', marginTop: '5px', display: 'block' }}>
-                    💡 Clique em um cliente para preencher os dados automaticamente
-                  </small>
-                )}
               </div>
 
+              {/* Campos específicos para Pessoa Física */}
+              {formulario.tipoPessoa === 'fisica' && (
+                <>
+                  <div className="form-group">
+                    <label>👤 Nome Completo:</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={formulario.nome}
+                        onChange={handleNomeChange}
+                        onFocus={() => {
+                          if (formulario.nome && !editando) {
+                            buscarHospedesExistentes(formulario.nome);
+                          }
+                        }}
+                        onBlur={() => {
+                          // Delay para permitir clique nas sugestões
+                          setTimeout(() => setMostrarSugestoes(false), 200);
+                        }}
+                        placeholder="Digite o nome completo do hóspede"
+                        required
+                      />
+                      
+                      {/* Loading de busca */}
+                      {buscandoHospede && (
+                        <div style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          color: '#6c757d',
+                          fontSize: '0.8rem'
+                        }}>
+                          🔍 Buscando...
+                        </div>
+                      )}
+                      
+                      {/* Sugestões de hóspedes existentes */}
+                      {mostrarSugestoes && sugestoesHospedes.length > 0 && !editando && (
+                        <div className="sugestoes-hospedes">
+                          <div className="sugestoes-header">
+                            <span>🔍 Hóspedes encontrados (evitar duplicatas):</span>
+                          </div>
+                          {sugestoesHospedes.map((hospede, index) => (
+                            <div
+                              key={hospede.id + '-' + index}
+                              className="sugestao-item"
+                              onClick={() => selecionarHospedeExistente(hospede)}
+                            >
+                              <div className="sugestao-nome">{hospede.nome}</div>
+                              <div className="sugestao-detalhes">
+                                {hospede.telefone && <span>📞 {hospede.telefone}</span>}
+                                {hospede.cpf && <span>📄 {hospede.cpf}</span>}
+                                <span className={`sugestao-status ${hospede.statusHospedagem?.toLowerCase()}`}>
+                                  {hospede.statusHospedagem === 'FINALIZADO' ? '✅ Histórico' : '🟢 Ativo'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Aviso sobre cliente existente */}
+                    {mostrarSugestoes && sugestoesHospedes.length > 0 && !editando && (
+                      <small style={{ color: '#28a745', fontWeight: 'bold', marginTop: '5px', display: 'block' }}>
+                        💡 Clique em um cliente para preencher os dados automaticamente
+                      </small>
+                    )}
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>🆔 RG:</label>
+                      <input
+                        type="text"
+                        value={formulario.rg}
+                        onChange={(e) => setFormulario({...formulario, rg: e.target.value})}
+                        placeholder="12.345.678-9"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>📄 CPF:</label>
+                      <input
+                        type="text"
+                        value={formulario.cpf}
+                        onChange={(e) => setFormulario({...formulario, cpf: e.target.value})}
+                        placeholder="123.456.789-00"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>🚗 CNH:</label>
+                    <input
+                      type="text"
+                      value={formulario.cnh}
+                      onChange={(e) => setFormulario({...formulario, cnh: e.target.value})}
+                      placeholder="12345678901 (opcional)"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Campos específicos para Pessoa Jurídica */}
+              {formulario.tipoPessoa === 'juridica' && (
+                <>
+                  <div className="form-group">
+                    <label>🏢 Razão Social:</label>
+                    <input
+                      type="text"
+                      value={formulario.razaoSocial}
+                      onChange={(e) => setFormulario({...formulario, razaoSocial: e.target.value, nome: e.target.value})}
+                      placeholder="Razão Social da Empresa"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>📄 CNPJ:</label>
+                    <input
+                      type="text"
+                      value={formulario.cnpj}
+                      onChange={(e) => setFormulario({...formulario, cnpj: e.target.value})}
+                      placeholder="00.000.000/0001-00"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Campos comuns para ambos os tipos */}
               <div className="form-row">
                 <div className="form-group">
                   <label>📞 Telefone:</label>
@@ -1621,39 +1821,113 @@ function App() {
                 </div>
               </div>
 
+              {/* Seção de Endereço */}
+              <h3 className="form-section-title">📍 Endereço Completo</h3>
+
               <div className="form-row">
-                <div className="form-group">
-                  <label>🆔 RG:</label>
+                <div className="form-group form-group-large">
+                  <label>Logradouro:</label>
                   <input
                     type="text"
-                    value={formulario.rg}
-                    onChange={(e) => setFormulario({...formulario, rg: e.target.value})}
-                    placeholder="12.345.678-9"
+                    value={formulario.logradouro}
+                    onChange={(e) => setFormulario({...formulario, logradouro: e.target.value})}
+                    placeholder="Rua, Avenida, etc."
                   />
                 </div>
-                <div className="form-group">
-                  <label>📄 CPF:</label>
+                <div className="form-group form-group-small">
+                  <label>Número:</label>
                   <input
                     type="text"
-                    value={formulario.cpf}
-                    onChange={(e) => setFormulario({...formulario, cpf: e.target.value})}
-                    placeholder="123.456.789-00"
+                    value={formulario.numero}
+                    onChange={(e) => setFormulario({...formulario, numero: e.target.value})}
+                    placeholder="123"
                   />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>🚗 CNH:</label>
+                  <label>Complemento:</label>
                   <input
                     type="text"
-                    value={formulario.cnh}
-                    onChange={(e) => setFormulario({...formulario, cnh: e.target.value})}
-                    placeholder="12345678901 (opcional)"
+                    value={formulario.complemento}
+                    onChange={(e) => setFormulario({...formulario, complemento: e.target.value})}
+                    placeholder="Apto, Bloco, etc. (opcional)"
                   />
                 </div>
                 <div className="form-group">
-                  <label>💰 Valor da Diária (R$):</label>
+                  <label>Bairro:</label>
+                  <input
+                    type="text"
+                    value={formulario.bairro}
+                    onChange={(e) => setFormulario({...formulario, bairro: e.target.value})}
+                    placeholder="Bairro"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>CEP:</label>
+                  <input
+                    type="text"
+                    value={formulario.cep}
+                    onChange={(e) => setFormulario({...formulario, cep: e.target.value})}
+                    placeholder="00000-000"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Cidade:</label>
+                  <input
+                    type="text"
+                    value={formulario.cidade}
+                    onChange={(e) => setFormulario({...formulario, cidade: e.target.value})}
+                    placeholder="Cidade"
+                  />
+                </div>
+                <div className="form-group form-group-small">
+                  <label>Estado:</label>
+                  <select
+                    value={formulario.estado}
+                    onChange={(e) => setFormulario({...formulario, estado: e.target.value})}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="AC">AC</option>
+                    <option value="AL">AL</option>
+                    <option value="AM">AM</option>
+                    <option value="AP">AP</option>
+                    <option value="BA">BA</option>
+                    <option value="CE">CE</option>
+                    <option value="DF">DF</option>
+                    <option value="ES">ES</option>
+                    <option value="GO">GO</option>
+                    <option value="MA">MA</option>
+                    <option value="MG">MG</option>
+                    <option value="MS">MS</option>
+                    <option value="MT">MT</option>
+                    <option value="PA">PA</option>
+                    <option value="PB">PB</option>
+                    <option value="PE">PE</option>
+                    <option value="PI">PI</option>
+                    <option value="PR">PR</option>
+                    <option value="RJ">RJ</option>
+                    <option value="RN">RN</option>
+                    <option value="RO">RO</option>
+                    <option value="RR">RR</option>
+                    <option value="RS">RS</option>
+                    <option value="SC">SC</option>
+                    <option value="SE">SE</option>
+                    <option value="SP">SP</option>
+                    <option value="TO">TO</option>
+                  </select>
+                </div>
+              </div>
+
+              <h3 className="form-section-title">💰 Informações de Pagamento</h3>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Valor da Diária (R$):</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1663,19 +1937,18 @@ function App() {
                     required
                   />
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label>💳 Status do Pagamento:</label>
-                <select
-                  value={formulario.pago}
-                  onChange={(e) => setFormulario({...formulario, pago: e.target.value})}
-                  required
-                >
-                  <option value="">Selecione...</option>
-                  <option value="PG">✅ Pago (PG)</option>
-                  <option value="PENDENTE">⏳ Pendente</option>
-                </select>
+                <div className="form-group">
+                  <label>Status do Pagamento:</label>
+                  <select
+                    value={formulario.pago}
+                    onChange={(e) => setFormulario({...formulario, pago: e.target.value})}
+                    required
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="PG">✅ Pago (PG)</option>
+                    <option value="PENDENTE">⏳ Pendente</option>
+                  </select>
+                </div>
               </div>
 
               <div className="form-actions">
@@ -1804,7 +2077,7 @@ function App() {
                     
                     {/* Consumos da empresa */}
                     {(() => {
-                      const { totalEmpresa, consumosEmpresa } = calcularTotaisSeparados(hospedeCheckout.consumos || []);
+                      const { totalEmpresa } = calcularTotaisSeparados(hospedeCheckout.consumos || []);
                       return totalEmpresa > 0 ? (
                         <div className="resumo-linha">
                           <span>Consumos (empresa):</span>
@@ -1917,13 +2190,38 @@ function App() {
             <div className="ficha-content">
               <div className="ficha-grid">
                 <div className="ficha-section">
-                  <h3>👤 Dados Pessoais</h3>
+                  <h3>👤 {hospedeFicha.tipoPessoa === 'juridica' ? 'Dados Corporativos' : 'Dados Pessoais'}</h3>
                   <div className="dados-grid">
-                    <div><strong>Nome:</strong> {hospedeFicha.nome}</div>
-                    <div><strong>Telefone:</strong> {hospedeFicha.telefone}</div>
-                    <div><strong>RG:</strong> {hospedeFicha.rg}</div>
-                    <div><strong>CPF:</strong> {hospedeFicha.cpf}</div>
-                    <div><strong>CNH:</strong> {hospedeFicha.cnh || 'Não informado'}</div>
+                    {hospedeFicha.tipoPessoa === 'juridica' ? (
+                      // Exibir campos de pessoa jurídica
+                      <>
+                        <div><strong>Razão Social:</strong> {hospedeFicha.razaoSocial}</div>
+                        <div><strong>CNPJ:</strong> {hospedeFicha.cnpj}</div>
+                        <div><strong>Telefone:</strong> {hospedeFicha.telefone}</div>
+                      </>
+                    ) : (
+                      // Exibir campos de pessoa física
+                      <>
+                        <div><strong>Nome:</strong> {hospedeFicha.nome}</div>
+                        <div><strong>Telefone:</strong> {hospedeFicha.telefone}</div>
+                        <div><strong>RG:</strong> {hospedeFicha.rg}</div>
+                        <div><strong>CPF:</strong> {hospedeFicha.cpf}</div>
+                        <div><strong>CNH:</strong> {hospedeFicha.cnh || 'Não informado'}</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ficha-section">
+                  <h3>📍 Endereço</h3>
+                  <div className="dados-grid">
+                    <div><strong>Logradouro:</strong> {hospedeFicha.logradouro || 'Não informado'}</div>
+                    <div><strong>Número:</strong> {hospedeFicha.numero || 'Não informado'}</div>
+                    <div><strong>Complemento:</strong> {hospedeFicha.complemento || 'Não informado'}</div>
+                    <div><strong>Bairro:</strong> {hospedeFicha.bairro || 'Não informado'}</div>
+                    <div><strong>Cidade:</strong> {hospedeFicha.cidade || 'Não informado'}</div>
+                    <div><strong>Estado:</strong> {hospedeFicha.estado || 'Não informado'}</div>
+                    <div><strong>CEP:</strong> {hospedeFicha.cep || 'Não informado'}</div>
                   </div>
                 </div>
 
@@ -2086,6 +2384,108 @@ function App() {
             <div className="modal-footer">
               <button onClick={fecharGerenciamentoProdutos} className="btn-primary">
                 ✅ Finalizar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Diárias */}
+      {mostrarDiarias && hospedeDiarias && (
+        <div className="modal-overlay">
+          <div className="modal modal-diarias">
+            <div className="diarias-header">
+              <h2>📅 Gerenciamento de Diárias - {hospedeDiarias.nome}</h2>
+              <button onClick={fecharDiarias} className="btn-close">✖️</button>
+            </div>
+
+            <div className="diarias-content">
+              <div className="info-hospede">
+                <div className="info-grid">
+                  <div><strong>Nome:</strong> {hospedeDiarias.nome}</div>
+                  <div><strong>Quarto:</strong> {hospedeDiarias.quartos}</div>
+                  <div><strong>Check-in:</strong> {new Date(hospedeDiarias.checkIn).toLocaleString('pt-BR')}</div>
+                  <div><strong>Diária:</strong> R$ {hospedeDiarias.valorDiaria.toFixed(2)}</div>
+                </div>
+              </div>
+              
+              <div className="diarias-lista">
+                <h3>📊 Controle de Diárias</h3>
+                {hospedeDiarias.controleDiarias && hospedeDiarias.controleDiarias.diarias ? (
+                  <div className="tabela-diarias">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Nº</th>
+                          <th>Início</th>
+                          <th>Vencimento</th>
+                          <th>Status</th>
+                          <th>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hospedeDiarias.controleDiarias.diarias.map(diaria => (
+                          <tr key={diaria.numero} className={`diaria-row ${diaria.status.toLowerCase()}`}>
+                            <td>{diaria.numero}</td>
+                            <td>{new Date(diaria.dataInicio).toLocaleString('pt-BR')}</td>
+                            <td>{new Date(diaria.dataVencimento).toLocaleString('pt-BR')}</td>
+                            <td>
+                              <span className={`status-diaria ${diaria.status.toLowerCase()}`}>
+                                {diaria.status === 'PAGO' ? '✅ Pago' : 
+                                 diaria.status === 'PENDENTE' ? '⏳ Pendente' : '⌛ Aguardando'}
+                              </span>
+                            </td>
+                            <td>
+                              {diaria.status !== 'PAGO' && (
+                                <button
+                                  onClick={() => pagarDiaria(diaria.numero)}
+                                  className="btn-pagar-diaria"
+                                >
+                                  💰 Pagar
+                                </button>
+                              )}
+                              {diaria.status === 'PAGO' && diaria.dataPagamento && (
+                                <span className="data-pagamento">
+                                  Pago em: {new Date(diaria.dataPagamento).toLocaleString('pt-BR')}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="sem-diarias">Este hóspede não possui controle de diárias configurado.</p>
+                )}
+              </div>
+              
+              <div className="diarias-resumo">
+                <h3>💰 Resumo</h3>
+                <div className="resumo-diarias">
+                  <div className="resumo-linha">
+                    <span>Total de Diárias:</span>
+                    <span>{hospedeDiarias.controleDiarias?.diarias?.length || 0}</span>
+                  </div>
+                  <div className="resumo-linha">
+                    <span>Diárias Pagas:</span>
+                    <span>{hospedeDiarias.controleDiarias?.diarias?.filter(d => d.status === 'PAGO').length || 0}</span>
+                  </div>
+                  <div className="resumo-linha">
+                    <span>Diárias Pendentes:</span>
+                    <span>{hospedeDiarias.controleDiarias?.diarias?.filter(d => d.status === 'PENDENTE').length || 0}</span>
+                  </div>
+                  <div className="resumo-linha">
+                    <span>Valor Total Pago:</span>
+                    <span>R$ {((hospedeDiarias.controleDiarias?.diarias?.filter(d => d.status === 'PAGO').length || 0) * hospedeDiarias.valorDiaria).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button onClick={fecharDiarias} className="btn-primary">
+                ✅ Concluir
               </button>
             </div>
           </div>

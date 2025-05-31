@@ -6,15 +6,59 @@ import {
   deleteDoc, 
   doc, 
   getDocs, 
+  getDoc,
   onSnapshot, 
   query, 
   where, 
   orderBy,
-  serverTimestamp 
+  serverTimestamp,
+  Timestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // ==================== HÓSPEDES ====================
+
+// Função auxiliar para obter a data do próximo meio-dia
+const obterProximoMeioDia = (data) => {
+  // Converter para objeto Date se for string
+  const dataBase = new Date(data);
+  const horaAtual = dataBase.getHours();
+  
+  // Se for antes do meio-dia, o próximo meio-dia é hoje mesmo
+  // Se for depois do meio-dia, o próximo meio-dia é amanhã
+  const proximoMeioDia = new Date(dataBase);
+  if (horaAtual >= 12) {
+    proximoMeioDia.setDate(dataBase.getDate() + 1);
+  }
+  
+  // Definir para meio-dia (12:00)
+  proximoMeioDia.setHours(12, 0, 0, 0);
+  
+  return proximoMeioDia;
+};
+
+// Função auxiliar para criar o controle de diárias
+const criarControleDiarias = (checkIn, primeiraDiariaPaga = false) => {
+  // Converter a data de check-in para objeto Date
+  const dataCheckIn = new Date(checkIn);
+  
+  // Criar a primeira diária
+  const diarias = [
+    {
+      numero: 1,
+      dataInicio: Timestamp.fromDate(dataCheckIn), // Usar Timestamp do Firestore
+      dataVencimento: Timestamp.fromDate(obterProximoMeioDia(dataCheckIn)), // Usar Timestamp do Firestore
+      status: primeiraDiariaPaga ? 'PAGO' : 'PENDENTE',
+      dataPagamento: primeiraDiariaPaga ? Timestamp.fromDate(new Date()) : null // Usar Timestamp do Firestore
+    }
+  ];
+  
+  return {
+    diarias: diarias,
+    ultimaDiariaRegistrada: 1,
+    proximaDiariaPendente: primeiraDiariaPaga ? null : 1
+  };
+};
 
 // Buscar todos os hóspedes
 export const buscarHospedes = async () => {
@@ -46,8 +90,25 @@ export const escutarHospedes = (callback) => {
 // Adicionar novo hóspede
 export const adicionarHospede = async (hospedeData) => {
   try {
+    // Configuração para controle de diárias
+    let dadosFinais = { ...hospedeData };
+    
+    // Verifica se a primeira diária está paga com base na seleção do dropdown
+    const primeiraDiariaPaga = hospedeData.pago === 'PG';
+    console.log('Status do pagamento:', hospedeData.pago, 'Primeira diária paga:', primeiraDiariaPaga);
+    
+    // Adiciona o controle de diárias se tiver data de check-in
+    if (hospedeData.checkIn) {
+      const controleDiarias = criarControleDiarias(hospedeData.checkIn, primeiraDiariaPaga);
+      
+      dadosFinais = {
+        ...dadosFinais,
+        controleDiarias: controleDiarias
+      };
+    }
+    
     const docRef = await addDoc(collection(db, 'hospedes'), {
-      ...hospedeData,
+      ...dadosFinais,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -62,6 +123,52 @@ export const adicionarHospede = async (hospedeData) => {
 export const atualizarHospede = async (hospedeId, dadosAtualizados) => {
   try {
     const hospedeRef = doc(db, 'hospedes', hospedeId);
+    
+    // Verificar se há mudança no status de pagamento
+    if (dadosAtualizados.pago) {
+      // Buscar dados atuais do hóspede para verificar o controle de diárias
+      const hospedeSnap = await getDoc(hospedeRef);
+      
+      if (hospedeSnap.exists()) {
+        const hospede = hospedeSnap.data();
+        
+        // Se o hóspede tem controle de diárias
+        if (hospede.controleDiarias && hospede.controleDiarias.diarias && hospede.controleDiarias.diarias.length > 0) {
+          console.log('Atualizando status da primeira diária para coincidir com status do hóspede');
+          
+          // Clone o controle de diárias para não modificar diretamente
+          const controleDiarias = JSON.parse(JSON.stringify(hospede.controleDiarias));
+          
+          // Atualizar o status da primeira diária (diária número 1)
+          const primeiraDiaria = controleDiarias.diarias.find(d => d.numero === 1);
+          if (primeiraDiaria) {
+            primeiraDiaria.status = dadosAtualizados.pago === 'PG' ? 'PAGO' : 'PENDENTE';
+            
+            // Se for marcada como paga, registrar a data de pagamento
+            if (dadosAtualizados.pago === 'PG') {
+              primeiraDiaria.dataPagamento = new Date();
+              
+              // Se a primeira diária era a próxima pendente, atualizar a referência
+              if (controleDiarias.proximaDiariaPendente === 1) {
+                // Buscar próxima diária pendente ou definir como null se não houver
+                const proximaPendente = controleDiarias.diarias.find(d => d.status === 'PENDENTE');
+                controleDiarias.proximaDiariaPendente = proximaPendente ? proximaPendente.numero : null;
+              }
+            } else {
+              // Se mudar para pendente e não houver outra pendente, atualizar a referência
+              if (!controleDiarias.proximaDiariaPendente) {
+                controleDiarias.proximaDiariaPendente = 1;
+              }
+              primeiraDiaria.dataPagamento = null;
+            }
+            
+            // Incluir o controle de diárias atualizado nos dados a serem salvos
+            dadosAtualizados.controleDiarias = controleDiarias;
+          }
+        }
+      }
+    }
+    
     await updateDoc(hospedeRef, {
       ...dadosAtualizados,
       updatedAt: serverTimestamp()
@@ -69,6 +176,124 @@ export const atualizarHospede = async (hospedeId, dadosAtualizados) => {
   } catch (error) {
     console.error('Erro ao atualizar hóspede:', error);
     throw error;
+  }
+};
+
+// Verificar e atualizar diárias de um hóspede
+export const verificarAtualizarDiarias = async (hospedeId) => {
+  try {
+    const hospedeRef = doc(db, 'hospedes', hospedeId);
+    const hospedeSnap = await getDoc(hospedeRef);
+    
+    if (!hospedeSnap.exists()) return;
+    
+    const hospede = { id: hospedeSnap.id, ...hospedeSnap.data() };
+    
+    // Se o hóspede estiver com status FINALIZADO ou CANCELADO, não precisa atualizar diárias
+    if (hospede.statusHospedagem === 'FINALIZADO' || hospede.statusHospedagem === 'CANCELADO') return;
+    
+    // Se o hóspede não tem controle de diárias, criar um novo
+    if (!hospede.controleDiarias || !hospede.controleDiarias.diarias) {
+      if (hospede.checkIn) {
+        const primeiraDiariaPaga = hospede.pago === 'PG';
+        const controleDiarias = criarControleDiarias(hospede.checkIn, primeiraDiariaPaga);
+        await updateDoc(hospedeRef, { controleDiarias, updatedAt: serverTimestamp() });
+        return controleDiarias;
+      }
+      return;
+    }
+    
+    const controleDiarias = hospede.controleDiarias;
+    const diarias = controleDiarias.diarias;
+    
+    // Verificar se a última diária já venceu
+    const ultimaDiaria = diarias[diarias.length - 1];
+    const dataVencimento = ultimaDiaria.dataVencimento instanceof Timestamp 
+      ? ultimaDiaria.dataVencimento.toDate() 
+      : new Date(ultimaDiaria.dataVencimento);
+    const agora = new Date();
+    
+    if (agora > dataVencimento) {
+      console.log(`Última diária vencida. Criando nova diária. Vencimento era: ${dataVencimento}, agora é: ${agora}`);
+      
+      // Criar nova diária
+      const novaDiaria = {
+        numero: ultimaDiaria.numero + 1,
+        dataInicio: Timestamp.fromDate(dataVencimento), // Usar Timestamp do Firestore
+        dataVencimento: Timestamp.fromDate(obterProximoMeioDia(dataVencimento)), // Usar Timestamp do Firestore
+        status: 'PENDENTE',
+        dataPagamento: null
+      };
+      
+      // Adicionar nova diária à lista
+      diarias.push(novaDiaria);
+      controleDiarias.ultimaDiariaRegistrada = novaDiaria.numero;
+      
+      // Se não houver outra diária pendente, definir esta como a próxima
+      if (!controleDiarias.proximaDiariaPendente) {
+        controleDiarias.proximaDiariaPendente = novaDiaria.numero;
+      }
+      
+      // Atualizar no banco
+      await updateDoc(hospedeRef, { 
+        controleDiarias, 
+        updatedAt: serverTimestamp() 
+      });
+      
+      return controleDiarias;
+    }
+    
+    return controleDiarias;
+  } catch (error) {
+    console.error('Erro ao verificar e atualizar diárias:', error);
+    throw error;
+  }
+};
+
+// Registrar pagamento de diária
+export const registrarPagamentoDiaria = async (hospedeId, numeroDiaria) => {
+  try {
+    const hospedeRef = doc(db, 'hospedes', hospedeId);
+    const hospedeSnap = await getDoc(hospedeRef);
+    
+    if (!hospedeSnap.exists()) return false;
+    
+    const hospede = hospedeSnap.data();
+    if (!hospede.controleDiarias || !hospede.controleDiarias.diarias) return false;
+    
+    const controleDiarias = { ...hospede.controleDiarias };
+    const diarias = [...controleDiarias.diarias];
+    
+    // Encontrar a diária específica pelo número
+    const diariaIndex = diarias.findIndex(d => d.numero === numeroDiaria);
+    if (diariaIndex === -1) return false;
+    
+    // Atualizar o status da diária para pago e registrar a data de pagamento
+    diarias[diariaIndex] = {
+      ...diarias[diariaIndex],
+      status: 'PAGO',
+      dataPagamento: Timestamp.fromDate(new Date()) // Usar Timestamp do Firestore
+    };
+    
+    // Atualizar o array de diárias no controle
+    controleDiarias.diarias = diarias;
+    
+    // Se a diária paga era a próxima pendente, atualizar a referência
+    if (controleDiarias.proximaDiariaPendente === numeroDiaria) {
+      const proximaPendente = diarias.find(d => d.status === 'PENDENTE');
+      controleDiarias.proximaDiariaPendente = proximaPendente ? proximaPendente.numero : null;
+    }
+    
+    // Atualizar no banco
+    await updateDoc(hospedeRef, {
+      controleDiarias: controleDiarias,
+      updatedAt: serverTimestamp()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao registrar pagamento da diária:', error);
+    return false;
   }
 };
 
