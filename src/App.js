@@ -1259,9 +1259,22 @@ function App() {
 
   console.log(`📊 Recálculo - ATIVOS: ${hospedesAtivos.length}, FINALIZADOS: ${hospedesFinalizados.length}, CANCELADOS: ${hospedesCancelados.length}`);
 
+  // === DASHBOARD === Cálculo das estatísticas para o painel principal
   const totalHospedes = hospedesAtivos.length;
-  const totalPago = hospedesAtivos.filter(h => h.pago === 'PG').length;
-  const totalPendente = hospedesAtivos.filter(h => h.pago === 'PENDENTE').length;
+  
+  // Corrigido: Contagem de pagamentos confirmados deve contar TODAS as diárias pagas
+  const totalPago = hospedesAtivos.reduce((total, h) => {
+    // Somar todas as diárias com status PAGO para todos os hóspedes
+    const diariasPagas = h.controleDiarias?.diarias?.filter(d => d.status === 'PAGO')?.length || 0;
+    return total + diariasPagas;
+  }, 0);
+  
+  // Corrigido: Contagem de pagamentos pendentes deve contar TODAS as diárias pendentes
+  const totalPendente = hospedesAtivos.reduce((total, h) => {
+    // Somar todas as diárias com status PENDENTE para todos os hóspedes
+    const diariasPendentes = h.controleDiarias?.diarias?.filter(d => d.status === 'PENDENTE')?.length || 0;
+    return total + diariasPendentes;
+  }, 0);
   
   // Para calcular faturamento, precisamos dos consumos
   const faturamentoDiarias = hospedesAtivos.reduce((acc, h) => 
