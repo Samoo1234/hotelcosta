@@ -2427,8 +2427,8 @@ function App() {
                         {hospedeDiarias.controleDiarias.diarias.map(diaria => (
                           <tr key={diaria.numero} className={`diaria-row ${diaria.status.toLowerCase()}`}>
                             <td>{diaria.numero}</td>
-                            <td>{new Date(diaria.dataInicio).toLocaleString('pt-BR')}</td>
-                            <td>{new Date(diaria.dataVencimento).toLocaleString('pt-BR')}</td>
+                            <td>{diaria.dataInicio ? new Date(diaria.dataInicio).toLocaleString('pt-BR') : '-'}</td>
+                            <td>{diaria.dataVencimento ? new Date(diaria.dataVencimento).toLocaleString('pt-BR') : '-'}</td>
                             <td>
                               <span className={`status-diaria ${diaria.status.toLowerCase()}`}>
                                 {diaria.status === 'PAGO' ? '✅ Pago' : 
