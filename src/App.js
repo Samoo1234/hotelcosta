@@ -2399,6 +2399,7 @@ function App() {
               <button onClick={fecharDiarias} className="btn-close">✖️</button>
             </div>
 
+            {/* modal gerenciamento de diarias */}
             <div className="diarias-content">
               <div className="info-hospede">
                 <div className="info-grid">
@@ -2418,7 +2419,6 @@ function App() {
                         <tr>
                           <th>Nº</th>
                           <th>Início</th>
-                          <th>Vencimento</th>
                           <th>Status</th>
                           <th>Ações</th>
                         </tr>
@@ -2427,8 +2427,7 @@ function App() {
                         {hospedeDiarias.controleDiarias.diarias.map(diaria => (
                           <tr key={diaria.numero} className={`diaria-row ${diaria.status.toLowerCase()}`}>
                             <td>{diaria.numero}</td>
-                            <td>{diaria.dataInicio ? new Date(diaria.dataInicio).toLocaleString('pt-BR') : '-'}</td>
-                            <td>{diaria.dataVencimento ? new Date(diaria.dataVencimento).toLocaleString('pt-BR') : '-'}</td>
+                            <td>{diaria.dataInicio ? (diaria.dataInicio.toDate ? diaria.dataInicio.toDate().toLocaleString('pt-BR') : new Date(diaria.dataInicio).toLocaleString('pt-BR')) : '-'}</td>
                             <td>
                               <span className={`status-diaria ${diaria.status.toLowerCase()}`}>
                                 {diaria.status === 'PAGO' ? '✅ Pago' : 
@@ -2446,7 +2445,7 @@ function App() {
                               )}
                               {diaria.status === 'PAGO' && diaria.dataPagamento && (
                                 <span className="data-pagamento">
-                                  Pago em: {new Date(diaria.dataPagamento).toLocaleString('pt-BR')}
+                                  Pago em: {diaria.dataPagamento.toDate ? diaria.dataPagamento.toDate().toLocaleString('pt-BR') : new Date(diaria.dataPagamento).toLocaleString('pt-BR')}
                                 </span>
                               )}
                             </td>
