@@ -701,7 +701,8 @@ input::placeholder {
 .btn-ficha,
 .btn-diarias,
 .btn-checkout,
-.btn-cancel {
+.btn-cancel,
+.btn-consumos {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   padding: 8px;
@@ -865,6 +866,27 @@ input::placeholder {
   border-color: #4f46e5;
   transform: translateY(-2px);
   box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+}
+
+.btn-consumos:disabled {
+  background: #f8f9fa !important;
+  color: #9ca3af !important;
+  border-color: #e5e7eb !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 0.6;
+}
+
+.btn-consumos:disabled:hover {
+  background: #f8f9fa !important;
+  border-color: #e5e7eb !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-consumos:disabled svg {
+  stroke: #9ca3af !important;
 }
 
 /* Ícones já não são necessários - usando SVG inline */
