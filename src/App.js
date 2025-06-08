@@ -1387,6 +1387,128 @@ function App() {
     };
   };
 
+  // ==================== GERADOR DE FORMULÁRIO EM BRANCO ====================
+
+  const gerarFormularioEmBranco = () => {
+    const doc = new jsPDF();
+    
+    // Configuração inicial - margens menores para maximizar espaço
+    const margemEsquerda = 15;
+    const margemTopo = 12;
+    let y = margemTopo;
+    
+    // Título principal - compacto
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("HOTEL COSTA", 105, y, { align: 'center' });
+    y += 6;
+    
+    doc.setFontSize(10);
+    doc.text("Formulário de Cadastro de Hóspede", 105, y, { align: 'center' });
+    y += 12;
+    
+    // Configuração padrão para campos
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    
+    // Função para adicionar campo simples
+    const adicionarCampo = (label, largura = 140, xPos = margemEsquerda) => {
+      doc.text(label, xPos, y);
+      doc.line(xPos + 35, y + 1, xPos + largura, y + 1);
+      y += 9;
+    };
+    
+    // Função para adicionar dois campos lado a lado
+    const adicionarCamposDuplos = (label1, label2, largura1 = 75, largura2 = 75) => {
+      doc.text(label1, margemEsquerda, y);
+      doc.line(margemEsquerda + 30, y + 1, margemEsquerda + largura1, y + 1);
+      
+      doc.text(label2, margemEsquerda + 95, y);
+      doc.line(margemEsquerda + 125, y + 1, margemEsquerda + 95 + largura2, y + 1);
+      y += 9;
+    };
+    
+    // Função para adicionar checkbox
+    const adicionarCheckbox = (x, yPos, label) => {
+      doc.rect(x, yPos - 2.5, 2.5, 2.5);
+      doc.text(label, x + 5, yPos);
+    };
+    
+    // Seção: Tipo de Pessoa
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("TIPO DE PESSOA:", margemEsquerda, y);
+    y += 6;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    adicionarCheckbox(margemEsquerda + 5, y, "Pessoa Física");
+    adicionarCheckbox(margemEsquerda + 70, y, "Pessoa Jurídica");
+    y += 10;
+    
+    // Seção: Dados Pessoais
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("DADOS PESSOAIS:", margemEsquerda, y);
+    y += 6;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    
+    // Campos de dados pessoais - otimizados
+    adicionarCampo("Nome Completo:", 170);
+    adicionarCamposDuplos("Telefone:", "RG:");
+    adicionarCamposDuplos("CPF:", "CNH:");
+    adicionarCampo("CNPJ (se PJ):", 100);
+    
+    // Seção: Endereço
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("ENDEREÇO:", margemEsquerda, y);
+    y += 6;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    
+    // Campos de endereço - lado a lado para economizar espaço
+    adicionarCampo("Logradouro:", 170);
+    adicionarCamposDuplos("Número:", "Complemento:");
+    adicionarCamposDuplos("Bairro:", "CEP:");
+    adicionarCamposDuplos("Cidade:", "Estado:");
+    
+    // Seção: Dados da Hospedagem
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("DADOS DA HOSPEDAGEM:", margemEsquerda, y);
+    y += 6;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    
+    // Campos da hospedagem - otimizados
+    adicionarCamposDuplos("Data da Reserva:", "Quarto Nº:");
+    adicionarCampo("Check-in (Data/Hora):", 170);
+    adicionarCampo("Valor da Diária: R$", 80);
+    
+    // Status do pagamento
+    doc.text("Status do Pagamento:", margemEsquerda, y);
+    y += 5;
+    adicionarCheckbox(margemEsquerda + 5, y, "Pago");
+    adicionarCheckbox(margemEsquerda + 40, y, "Pendente");
+    y += 12;
+    
+    // Rodapé - compacto
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    const dataGeracao = new Date().toLocaleString('pt-BR');
+    doc.text(`Formulário gerado em: ${dataGeracao}`, margemEsquerda, y + 3);
+    doc.text("Para uso interno - Hotel Costa", margemEsquerda, y + 8);
+    
+    // Salvar PDF
+    const nomeArquivo = `Formulario_Cadastro_Hotel_Costa_${new Date().getFullYear()}.pdf`;
+    doc.save(nomeArquivo);
+  };
+
   if (carregando) {
     return (
       <div className="app">
@@ -1420,6 +1542,13 @@ function App() {
               onClick={abrirGerenciamentoProdutos}
             >
               📦 Gerenciar Produtos
+            </button>
+            <button 
+              className="btn-formulario"
+              onClick={gerarFormularioEmBranco}
+              title="Gerar formulário em branco para impressão"
+            >
+              📄
             </button>
             <button 
               className="btn-primary"
